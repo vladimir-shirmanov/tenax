@@ -247,6 +247,69 @@
               }
             }
           ]
+        },
+        {
+          "name": "Update concurrency conflict - 409",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards", "{{flashcardId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"hola\",\n  \"definition\": \"hello conflict\",\n  \"imageUrl\": null\n}"
+            },
+            "description": "Requires a test profile or failure injection that maps update to concurrency_conflict."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('code is concurrency_conflict', function () { pm.expect(pm.response.json().code).to.eql('concurrency_conflict'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List persistence unavailable - 503",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "50" }
+              ]
+            },
+            "description": "Requires a test profile or failure injection that maps list to persistence_unavailable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 503', function () { pm.response.to.have.status(503); });",
+                  "pm.test('code is persistence_unavailable', function () { pm.expect(pm.response.json().code).to.eql('persistence_unavailable'); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

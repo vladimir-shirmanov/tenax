@@ -1,5 +1,8 @@
 import { ApiErrorEnvelope, ValidationErrors } from "./types";
 
+const PERSISTENCE_UNAVAILABLE_CODE = "persistence_unavailable";
+const CONCURRENCY_CONFLICT_CODE = "concurrency_conflict";
+
 export class ApiError extends Error {
   status: number;
   envelope: ApiErrorEnvelope;
@@ -29,4 +32,18 @@ export const getApiErrorMessage = (apiError: unknown): string => {
   }
 
   return "Something went wrong. Please try again.";
+};
+
+export const isPersistenceUnavailableError = (apiError: unknown): boolean => {
+  return (
+    apiError instanceof ApiError &&
+    apiError.envelope.code === PERSISTENCE_UNAVAILABLE_CODE
+  );
+};
+
+export const isConcurrencyConflictError = (apiError: unknown): boolean => {
+  return (
+    apiError instanceof ApiError &&
+    apiError.envelope.code === CONCURRENCY_CONFLICT_CODE
+  );
 };

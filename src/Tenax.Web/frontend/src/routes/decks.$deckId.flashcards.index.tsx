@@ -1,5 +1,5 @@
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { getApiErrorMessage } from "../api/errors";
+import { getApiErrorMessage, isPersistenceUnavailableError } from "../api/errors";
 import { useFlashcardListQuery } from "../api/flashcards";
 import { PageScaffold } from "../components/PageScaffold";
 
@@ -30,7 +30,18 @@ export const FlashcardListRoute = () => {
 
       {query.isError ? (
         <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
-          {getApiErrorMessage(query.error)}
+          <p>{getApiErrorMessage(query.error)}</p>
+          {isPersistenceUnavailableError(query.error) ? (
+            <button
+              type="button"
+              className="mt-3 rounded-lg border border-stone-500 px-3 py-1.5 text-sm font-semibold"
+              onClick={() => {
+                void query.refetch();
+              }}
+            >
+              Retry
+            </button>
+          ) : null}
         </div>
       ) : null}
 

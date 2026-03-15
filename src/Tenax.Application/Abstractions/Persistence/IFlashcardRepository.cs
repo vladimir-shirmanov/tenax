@@ -12,5 +12,15 @@ public interface IFlashcardRepository
 
     Task<Flashcard?> GetByIdAsync(string deckId, string flashcardId, CancellationToken cancellationToken);
 
-    Task<bool> DeleteAsync(string deckId, string flashcardId, CancellationToken cancellationToken);
+    Task<bool> UpdateAsync(Flashcard flashcard, DateTimeOffset expectedUpdatedAtUtc, CancellationToken cancellationToken);
+
+    Task<bool> DeleteAsync(string deckId, string flashcardId, DateTimeOffset expectedUpdatedAtUtc, CancellationToken cancellationToken);
+}
+
+public sealed class PersistenceUnavailableException : Exception
+{
+    public PersistenceUnavailableException(string message, Exception? innerException = null)
+        : base(message, innerException)
+    {
+    }
 }

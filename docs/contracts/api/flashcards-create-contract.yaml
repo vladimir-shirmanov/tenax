@@ -5,6 +5,14 @@ endpoint:
   path: "/api/decks/{deckId}/flashcards"
   owner: "Backend Developer"
 
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "201 response is returned only after transactional commit succeeds."
+
 request:
   path_params:
     - name: "deckId"
@@ -139,9 +147,23 @@ responses:
         message: "Deck not found"
         traceId: "00-a453ff4e82df4ef4a8c5805c98ceacfe-39dfb9d7a5d65db2-01"
 
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-4e9f6b8d39a942cc855fd257d70379ed-9c467df0216e2f71-01"
+
 frontend_contract_notes:
   query_key: "flashcards.list(deckId)"
-  cache_policy: "On success, invalidate flashcards.list(deckId). Do not prefill flashcards.detail from create response unless route navigates to detail."
+  cache_policy: "On success, invalidate flashcards.list(deckId). Do not prefill flashcards.detail from create response unless route navigates to detail. For 503 persistence_unavailable, surface retry UI and avoid optimistic cache mutation."
   route_usage: "routes/decks.$deckId.flashcards.new.tsx"
 
 compatibility_rules:

@@ -12,6 +12,10 @@ import {
   FlashcardListResponse,
   FlashcardWriteRequest,
 } from "./types";
+import {
+  isConcurrencyConflictError,
+  isPersistenceUnavailableError,
+} from "./errors";
 
 export const flashcardKeys = {
   all: ["flashcards"] as const,
@@ -83,6 +87,16 @@ export const useUpdateFlashcardMutation = (deckId: string, flashcardId: string) 
         queryKey: flashcardKeys.detail(deckId, flashcardId),
       });
     },
+    onError: async (error) => {
+      if (!isConcurrencyConflictError(error)) {
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: flashcardKeys.listRoot(deckId) });
+      await queryClient.invalidateQueries({
+        queryKey: flashcardKeys.detail(deckId, flashcardId),
+      });
+    },
   });
 };
 
@@ -117,10 +131,19 @@ export const useDeleteFlashcardMutation = (deckId: string, flashcardId: string) 
 
       return snapshots;
     },
-    onError: (_error, _variables, context) => {
+    onError: async (error, _variables, context) => {
       context?.forEach(([key, value]) => {
         queryClient.setQueryData(key, value);
       });
+
+      if (
+        isConcurrencyConflictError(error) ||
+        isPersistenceUnavailableError(error)
+      ) {
+        await queryClient.invalidateQueries({
+          queryKey: flashcardKeys.listRoot(deckId),
+        });
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: flashcardKeys.listRoot(deckId) });

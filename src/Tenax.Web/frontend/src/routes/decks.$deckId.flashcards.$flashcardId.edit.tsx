@@ -1,5 +1,9 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getApiErrorMessage, getValidationError } from "../api/errors";
+import {
+  getApiErrorMessage,
+  getValidationError,
+  isConcurrencyConflictError,
+} from "../api/errors";
 import {
   useFlashcardDetailQuery,
   useUpdateFlashcardMutation,
@@ -27,6 +31,20 @@ export const FlashcardEditRoute = () => {
       {detailQuery.isError ? (
         <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
           {getApiErrorMessage(detailQuery.error)}
+        </div>
+      ) : null}
+      {isConcurrencyConflictError(mutation.error) ? (
+        <div className="mb-4 rounded-lg border border-stone-300 bg-stone-100 p-3 text-sm">
+          <p>Reload latest flashcard and retry your changes.</p>
+          <button
+            type="button"
+            className="mt-2 rounded-lg border border-stone-500 px-3 py-1.5 text-xs font-semibold"
+            onClick={() => {
+              void detailQuery.refetch();
+            }}
+          >
+            Reload latest
+          </button>
         </div>
       ) : null}
       {detailQuery.isSuccess ? (

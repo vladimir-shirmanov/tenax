@@ -93,6 +93,36 @@ describe("flashcard mutation cache behavior", () => {
     });
   });
 
+  it("refetches canonical state on update concurrency conflict", async () => {
+    jest.spyOn(global, "fetch").mockImplementation(() =>
+      jsonResponse(409, {
+        code: "concurrency_conflict",
+        message: "Flashcard was modified by another operation. Reload and retry.",
+      })
+    );
+
+    const queryClient = new QueryClient();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(
+      () => useUpdateFlashcardMutation("deck_123", "fc_1"),
+      {
+        wrapper: wrapperFactory(queryClient),
+      }
+    );
+
+    result.current.mutate({ term: "hola", definition: "hello2", imageUrl: null });
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: flashcardKeys.listRoot("deck_123") })
+      );
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: flashcardKeys.detail("deck_123", "fc_1") })
+      );
+    });
+  });
+
   it("optimistically removes then invalidates and clears detail on delete", async () => {
     jest.spyOn(global, "fetch").mockImplementation(() =>
       jsonResponse(200, {
@@ -148,6 +178,57 @@ describe("flashcard mutation cache behavior", () => {
         expect.objectContaining({
           queryKey: flashcardKeys.detail("deck_123", "fc_1"),
         })
+      );
+    });
+  });
+
+  it("rolls back and refetches list on delete persistence outage", async () => {
+    jest.spyOn(global, "fetch").mockImplementation(() =>
+      jsonResponse(503, {
+        code: "persistence_unavailable",
+        message: "Persistence service is temporarily unavailable",
+      })
+    );
+
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(flashcardKeys.list("deck_123", 1, 50), {
+      items: [
+        {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definitionPreview: "hello",
+          hasImage: false,
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          updatedByUserId: "usr_1",
+        },
+      ],
+      page: 1,
+      pageSize: 50,
+      totalCount: 1,
+    });
+
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(
+      () => useDeleteFlashcardMutation("deck_123", "fc_1"),
+      {
+        wrapper: wrapperFactory(queryClient),
+      }
+    );
+
+    result.current.mutate();
+
+    await waitFor(() => {
+      const rolledBack = queryClient.getQueryData<{
+        items: Array<{ id: string }>;
+        totalCount: number;
+      }>(flashcardKeys.list("deck_123", 1, 50));
+
+      expect(rolledBack?.items).toHaveLength(1);
+      expect(rolledBack?.totalCount).toBe(1);
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: flashcardKeys.listRoot("deck_123") })
       );
     });
   });

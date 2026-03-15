@@ -19,7 +19,8 @@ public static class FlashcardsEndpoints
             .Produces<ApiErrorEnvelope>(StatusCodes.Status400BadRequest)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status403Forbidden)
-            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound);
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status503ServiceUnavailable);
 
         group.MapGet("/", ListAsync)
             .WithName("Flashcards_List")
@@ -28,7 +29,8 @@ public static class FlashcardsEndpoints
             .Produces<ApiErrorEnvelope>(StatusCodes.Status400BadRequest)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status403Forbidden)
-            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound);
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status503ServiceUnavailable);
 
         group.MapGet("/{flashcardId}", GetDetailAsync)
             .WithName("Flashcards_GetDetail")
@@ -36,7 +38,8 @@ public static class FlashcardsEndpoints
             .Produces<FlashcardDto>(StatusCodes.Status200OK)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status403Forbidden)
-            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound);
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status503ServiceUnavailable);
 
         group.MapPut("/{flashcardId}", UpdateAsync)
             .WithName("Flashcards_Update")
@@ -45,7 +48,9 @@ public static class FlashcardsEndpoints
             .Produces<ApiErrorEnvelope>(StatusCodes.Status400BadRequest)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status403Forbidden)
-            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound);
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status409Conflict)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status503ServiceUnavailable);
 
         group.MapDelete("/{flashcardId}", DeleteAsync)
             .WithName("Flashcards_Delete")
@@ -53,7 +58,9 @@ public static class FlashcardsEndpoints
             .Produces<DeleteFlashcardDto>(StatusCodes.Status200OK)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status401Unauthorized)
             .Produces<ApiErrorEnvelope>(StatusCodes.Status403Forbidden)
-            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound);
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status404NotFound)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status409Conflict)
+            .Produces<ApiErrorEnvelope>(StatusCodes.Status503ServiceUnavailable);
 
         return group;
     }
@@ -145,6 +152,8 @@ public static class FlashcardsEndpoints
             FlashcardErrorCodes.Forbidden => TypedResults.Json(envelope, statusCode: StatusCodes.Status403Forbidden),
             FlashcardErrorCodes.DeckNotFound => TypedResults.NotFound(envelope),
             FlashcardErrorCodes.NotFound => TypedResults.NotFound(envelope),
+            FlashcardErrorCodes.ConcurrencyConflict => TypedResults.Conflict(envelope),
+            FlashcardErrorCodes.PersistenceUnavailable => TypedResults.Json(envelope, statusCode: StatusCodes.Status503ServiceUnavailable),
             _ => TypedResults.BadRequest(envelope)
         };
     }

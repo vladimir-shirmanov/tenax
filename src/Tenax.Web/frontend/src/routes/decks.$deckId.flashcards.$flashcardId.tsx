@@ -1,6 +1,10 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
-import { getApiErrorMessage } from "../api/errors";
+import {
+  getApiErrorMessage,
+  isConcurrencyConflictError,
+  isPersistenceUnavailableError,
+} from "../api/errors";
 import {
   useDeleteFlashcardMutation,
   useFlashcardDetailQuery,
@@ -38,11 +42,22 @@ export const FlashcardDetailRoute = () => {
       {detailQuery.isLoading ? <p>Loading flashcard...</p> : null}
       {detailQuery.isError ? (
         <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
-          {getApiErrorMessage(detailQuery.error)}
+          <p>{getApiErrorMessage(detailQuery.error)}</p>
+          {isPersistenceUnavailableError(detailQuery.error) ? (
+            <button
+              type="button"
+              className="mt-3 rounded-lg border border-stone-500 px-3 py-1.5 text-sm font-semibold"
+              onClick={() => {
+                void detailQuery.refetch();
+              }}
+            >
+              Retry
+            </button>
+          ) : null}
         </div>
       ) : null}
 
-      {detailQuery.isSuccess ? (
+      {detailQuery.data ? (
         <article className="space-y-4">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-stone-600">Term</h2>
@@ -72,6 +87,12 @@ export const FlashcardDetailRoute = () => {
           {deleteMutation.isError ? (
             <p role="alert" className="mt-2 text-sm text-ember">
               {getApiErrorMessage(deleteMutation.error)}
+            </p>
+          ) : null}
+          {isConcurrencyConflictError(deleteMutation.error) ||
+          isPersistenceUnavailableError(deleteMutation.error) ? (
+            <p className="mt-2 text-xs text-stone-700">
+              Refreshing canonical state is in progress. Review the latest content, then retry delete.
             </p>
           ) : null}
           <div className="mt-3 flex gap-2">

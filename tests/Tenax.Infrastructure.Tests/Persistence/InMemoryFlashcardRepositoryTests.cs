@@ -46,7 +46,7 @@ public sealed class InMemoryFlashcardRepositoryTests
 
         await repository.AddAsync(card, CancellationToken.None);
 
-        var deleted = await repository.DeleteAsync("deck_owned", "fc_delete", CancellationToken.None);
+        var deleted = await repository.DeleteAsync("deck_owned", "fc_delete", card.UpdatedAtUtc, CancellationToken.None);
         var missing = await repository.GetByIdAsync("deck_owned", "fc_delete", CancellationToken.None);
 
         Assert.True(deleted);

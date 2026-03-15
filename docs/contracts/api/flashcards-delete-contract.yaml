@@ -5,6 +5,14 @@ endpoint:
   path: "/api/decks/{deckId}/flashcards/{flashcardId}"
   owner: "Backend Developer"
 
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "200 delete response is returned only after transactional commit succeeds."
+
 request:
   path_params:
     - name: "deckId"
@@ -80,9 +88,37 @@ responses:
         message: "Flashcard not found"
         traceId: "00-3add74403f844fd8897374b64f9c993f-c327d4c120b1d6cd-01"
 
+    - status: 409
+      code: "concurrency_conflict"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "concurrency_conflict"
+        message: "Flashcard changed during delete operation. Refresh and retry."
+        traceId: "00-53129be3f65548a48e2048f2dba2d863-96f650be6827c28d-01"
+
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-dd5996bec3f74cf6bc6c7fd93e40b2a2-f8afd0569bb72a67-01"
+
 frontend_contract_notes:
   query_key: "flashcards.delete(deckId, flashcardId)"
-  cache_policy: "Use optimistic remove in flashcards.list(deckId) with rollback on failure. On success, invalidate flashcards.list(deckId) and remove flashcards.detail(deckId, flashcardId) cache entry."
+  cache_policy: "Use optimistic remove in flashcards.list(deckId) with rollback on failure. On success, invalidate flashcards.list(deckId) and remove flashcards.detail(deckId, flashcardId) cache entry. On 409 concurrency_conflict or 503 persistence_unavailable, rollback optimistic state and refetch list."
   route_usage: "routes/decks.$deckId.flashcards.$flashcardId.tsx (confirmation modal/action)"
 
 compatibility_rules:

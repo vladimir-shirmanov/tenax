@@ -1,16 +1,21 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Tenax.Application.Flashcards;
 using Xunit;
 
 namespace Tenax.Web.Tests;
 
 public sealed class FlashcardsEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 {
+    private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
     public FlashcardsEndpointsTests(CustomWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -282,5 +287,90 @@ public sealed class FlashcardsEndpointsTests : IClassFixture<CustomWebApplicatio
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    [Fact]
+    public async Task Update_WhenServiceReturnsConcurrencyConflict_ShouldReturn409Envelope()
+    {
+        var client = CreateClientWithServiceFailure(new FlashcardFailure(
+            FlashcardErrorCodes.ConcurrencyConflict,
+            "Flashcard was modified by another operation. Reload and retry."));
+
+        var response = await client.PutAsJsonAsync("/api/decks/deck_owned/flashcards/fc_123", new
+        {
+            term = "hola",
+            definition = "hello",
+            imageUrl = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("concurrency_conflict", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task List_WhenServiceReturnsPersistenceUnavailable_ShouldReturn503Envelope()
+    {
+        var client = CreateClientWithServiceFailure(new FlashcardFailure(
+            FlashcardErrorCodes.PersistenceUnavailable,
+            "Persistence service is temporarily unavailable"));
+
+        var response = await client.GetAsync("/api/decks/deck_owned/flashcards");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("persistence_unavailable", body.GetProperty("code").GetString());
+    }
+
+    private HttpClient CreateClientWithServiceFailure(FlashcardFailure failure)
+    {
+        var app = _factory
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    services.RemoveAll<IFlashcardService>();
+                    services.AddScoped<IFlashcardService>(_ => new FailingFlashcardService(failure));
+                });
+            });
+
+        return app.CreateClient();
+    }
+
+    private sealed class FailingFlashcardService : IFlashcardService
+    {
+        private readonly FlashcardFailure _failure;
+
+        public FailingFlashcardService(FlashcardFailure failure)
+        {
+            _failure = failure;
+        }
+
+        public Task<FlashcardResult<FlashcardDto>> CreateAsync(CreateFlashcardInput input, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FlashcardResult<FlashcardDto>.Failed(_failure));
+        }
+
+        public Task<FlashcardResult<FlashcardListDto>> ListAsync(ListFlashcardsInput input, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FlashcardResult<FlashcardListDto>.Failed(_failure));
+        }
+
+        public Task<FlashcardResult<FlashcardDto>> GetDetailAsync(GetFlashcardDetailInput input, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FlashcardResult<FlashcardDto>.Failed(_failure));
+        }
+
+        public Task<FlashcardResult<FlashcardDto>> UpdateAsync(UpdateFlashcardInput input, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FlashcardResult<FlashcardDto>.Failed(_failure));
+        }
+
+        public Task<FlashcardResult<DeleteFlashcardDto>> DeleteAsync(DeleteFlashcardInput input, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FlashcardResult<DeleteFlashcardDto>.Failed(_failure));
+        }
     }
 }

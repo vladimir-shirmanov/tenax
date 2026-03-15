@@ -31,156 +31,211 @@ public sealed class FlashcardService : IFlashcardService
 
     public async Task<FlashcardResult<FlashcardDto>> CreateAsync(CreateFlashcardInput input, CancellationToken cancellationToken)
     {
-        var validationResult = await _createValidator.ValidateAsync(input, cancellationToken);
-        if (!validationResult.IsValid)
+        try
         {
-            return FlashcardResult<FlashcardDto>.Failed(ValidationFailure(validationResult));
-        }
+            var validationResult = await _createValidator.ValidateAsync(input, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(ValidationFailure(validationResult));
+            }
 
-        var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
-        if (deck is null)
+            var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
+            if (deck is null)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.DeckNotFound, "Deck not found"));
+            }
+
+            if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to modify this deck"));
+            }
+
+            var now = _timeProvider.GetUtcNow();
+            var flashcard = new Flashcard(
+                GenerateId(),
+                input.DeckId,
+                input.Term,
+                input.Definition,
+                string.IsNullOrWhiteSpace(input.ImageUrl) ? null : input.ImageUrl,
+                now,
+                now,
+                input.UserId,
+                input.UserId);
+
+            await _flashcardRepository.AddAsync(flashcard, cancellationToken);
+
+            return FlashcardResult<FlashcardDto>.Success(MapDto(flashcard));
+        }
+        catch (PersistenceUnavailableException)
         {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.DeckNotFound, "Deck not found"));
+            return FlashcardResult<FlashcardDto>.Failed(PersistenceUnavailableFailure());
         }
-
-        if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
-        {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to modify this deck"));
-        }
-
-        var now = _timeProvider.GetUtcNow();
-        var flashcard = new Flashcard(
-            GenerateId(),
-            input.DeckId,
-            input.Term,
-            input.Definition,
-            string.IsNullOrWhiteSpace(input.ImageUrl) ? null : input.ImageUrl,
-            now,
-            now,
-            input.UserId,
-            input.UserId);
-
-        await _flashcardRepository.AddAsync(flashcard, cancellationToken);
-
-        return FlashcardResult<FlashcardDto>.Success(MapDto(flashcard));
     }
 
     public async Task<FlashcardResult<FlashcardListDto>> ListAsync(ListFlashcardsInput input, CancellationToken cancellationToken)
     {
-        var validationResult = await _listValidator.ValidateAsync(input, cancellationToken);
-        if (!validationResult.IsValid)
+        try
         {
-            return FlashcardResult<FlashcardListDto>.Failed(ValidationFailure(validationResult));
-        }
+            var validationResult = await _listValidator.ValidateAsync(input, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return FlashcardResult<FlashcardListDto>.Failed(ValidationFailure(validationResult));
+            }
 
-        var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
-        if (deck is null)
+            var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
+            if (deck is null)
+            {
+                return FlashcardResult<FlashcardListDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.DeckNotFound, "Deck not found"));
+            }
+
+            if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
+            {
+                return FlashcardResult<FlashcardListDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to view this deck"));
+            }
+
+            var skip = (input.Page - 1) * input.PageSize;
+            var cards = await _flashcardRepository.ListByDeckAsync(input.DeckId, skip, input.PageSize, cancellationToken);
+            var total = await _flashcardRepository.CountByDeckAsync(input.DeckId, cancellationToken);
+
+            var items = cards
+                .Select(card => new FlashcardListItemDto(
+                    card.Id,
+                    card.DeckId,
+                    card.Term,
+                    BuildDefinitionPreview(card.Definition),
+                    !string.IsNullOrWhiteSpace(card.ImageUrl),
+                    card.UpdatedAtUtc,
+                    card.UpdatedByUserId))
+                .ToArray();
+
+            return FlashcardResult<FlashcardListDto>.Success(new FlashcardListDto(items, input.Page, input.PageSize, total));
+        }
+        catch (PersistenceUnavailableException)
         {
-            return FlashcardResult<FlashcardListDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.DeckNotFound, "Deck not found"));
+            return FlashcardResult<FlashcardListDto>.Failed(PersistenceUnavailableFailure());
         }
-
-        if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
-        {
-            return FlashcardResult<FlashcardListDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to view this deck"));
-        }
-
-        var skip = (input.Page - 1) * input.PageSize;
-        var cards = await _flashcardRepository.ListByDeckAsync(input.DeckId, skip, input.PageSize, cancellationToken);
-        var total = await _flashcardRepository.CountByDeckAsync(input.DeckId, cancellationToken);
-
-        var items = cards
-            .Select(card => new FlashcardListItemDto(
-                card.Id,
-                card.DeckId,
-                card.Term,
-                BuildDefinitionPreview(card.Definition),
-                !string.IsNullOrWhiteSpace(card.ImageUrl),
-                card.UpdatedAtUtc,
-                card.UpdatedByUserId))
-            .ToArray();
-
-        return FlashcardResult<FlashcardListDto>.Success(new FlashcardListDto(items, input.Page, input.PageSize, total));
     }
 
     public async Task<FlashcardResult<FlashcardDto>> GetDetailAsync(GetFlashcardDetailInput input, CancellationToken cancellationToken)
     {
-        var card = await _flashcardRepository.GetByIdAsync(input.DeckId, input.FlashcardId, cancellationToken);
-        if (card is null)
+        try
         {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
-        }
+            var card = await _flashcardRepository.GetByIdAsync(input.DeckId, input.FlashcardId, cancellationToken);
+            if (card is null)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            }
 
-        var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
-        if (deck is null)
+            var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
+            if (deck is null)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            }
+
+            if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to view this flashcard"));
+            }
+
+            return FlashcardResult<FlashcardDto>.Success(MapDto(card));
+        }
+        catch (PersistenceUnavailableException)
         {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            return FlashcardResult<FlashcardDto>.Failed(PersistenceUnavailableFailure());
         }
-
-        if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
-        {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to view this flashcard"));
-        }
-
-        return FlashcardResult<FlashcardDto>.Success(MapDto(card));
     }
 
     public async Task<FlashcardResult<FlashcardDto>> UpdateAsync(UpdateFlashcardInput input, CancellationToken cancellationToken)
     {
-        var validationResult = await _updateValidator.ValidateAsync(input, cancellationToken);
-        if (!validationResult.IsValid)
+        try
         {
-            return FlashcardResult<FlashcardDto>.Failed(ValidationFailure(validationResult));
-        }
+            var validationResult = await _updateValidator.ValidateAsync(input, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(ValidationFailure(validationResult));
+            }
 
-        var card = await _flashcardRepository.GetByIdAsync(input.DeckId, input.FlashcardId, cancellationToken);
-        if (card is null)
+            var card = await _flashcardRepository.GetByIdAsync(input.DeckId, input.FlashcardId, cancellationToken);
+            if (card is null)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            }
+
+            var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
+            if (deck is null)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            }
+
+            if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to modify this flashcard"));
+            }
+
+            var expectedUpdatedAtUtc = card.UpdatedAtUtc;
+            card.Update(
+                input.Term,
+                input.Definition,
+                string.IsNullOrWhiteSpace(input.ImageUrl) ? null : input.ImageUrl,
+                _timeProvider.GetUtcNow(),
+                input.UserId);
+
+            var updated = await _flashcardRepository.UpdateAsync(card, expectedUpdatedAtUtc, cancellationToken);
+            if (!updated)
+            {
+                return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(
+                    FlashcardErrorCodes.ConcurrencyConflict,
+                    "Flashcard was modified by another operation. Reload and retry."));
+            }
+
+            return FlashcardResult<FlashcardDto>.Success(MapDto(card));
+        }
+        catch (PersistenceUnavailableException)
         {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            return FlashcardResult<FlashcardDto>.Failed(PersistenceUnavailableFailure());
         }
-
-        var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
-        if (deck is null)
-        {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
-        }
-
-        if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
-        {
-            return FlashcardResult<FlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to modify this flashcard"));
-        }
-
-        card.Update(
-            input.Term,
-            input.Definition,
-            string.IsNullOrWhiteSpace(input.ImageUrl) ? null : input.ImageUrl,
-            _timeProvider.GetUtcNow(),
-            input.UserId);
-
-        return FlashcardResult<FlashcardDto>.Success(MapDto(card));
     }
 
     public async Task<FlashcardResult<DeleteFlashcardDto>> DeleteAsync(DeleteFlashcardInput input, CancellationToken cancellationToken)
     {
-        var card = await _flashcardRepository.GetByIdAsync(input.DeckId, input.FlashcardId, cancellationToken);
-        if (card is null)
+        try
         {
-            return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
-        }
+            var card = await _flashcardRepository.GetByIdAsync(input.DeckId, input.FlashcardId, cancellationToken);
+            if (card is null)
+            {
+                return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            }
 
-        var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
-        if (deck is null)
+            var deck = await _deckRepository.GetByIdAsync(input.DeckId, cancellationToken);
+            if (deck is null)
+            {
+                return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            }
+
+            if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
+            {
+                return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to delete this flashcard"));
+            }
+
+            var deleted = await _flashcardRepository.DeleteAsync(input.DeckId, input.FlashcardId, card.UpdatedAtUtc, cancellationToken);
+            if (!deleted)
+            {
+                return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(
+                    FlashcardErrorCodes.ConcurrencyConflict,
+                    "Flashcard changed during delete operation. Refresh and retry."));
+            }
+
+            return FlashcardResult<DeleteFlashcardDto>.Success(new DeleteFlashcardDto(true, input.FlashcardId, input.DeckId, _timeProvider.GetUtcNow()));
+        }
+        catch (PersistenceUnavailableException)
         {
-            return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.NotFound, "Flashcard not found"));
+            return FlashcardResult<DeleteFlashcardDto>.Failed(PersistenceUnavailableFailure());
         }
+    }
 
-        if (!string.Equals(deck.OwnerUserId, input.UserId, StringComparison.Ordinal))
-        {
-            return FlashcardResult<DeleteFlashcardDto>.Failed(new FlashcardFailure(FlashcardErrorCodes.Forbidden, "You do not have permission to delete this flashcard"));
-        }
-
-        await _flashcardRepository.DeleteAsync(input.DeckId, input.FlashcardId, cancellationToken);
-
-        return FlashcardResult<DeleteFlashcardDto>.Success(new DeleteFlashcardDto(true, input.FlashcardId, input.DeckId, _timeProvider.GetUtcNow()));
+    private static FlashcardFailure PersistenceUnavailableFailure()
+    {
+        return new FlashcardFailure(FlashcardErrorCodes.PersistenceUnavailable, "Persistence service is temporarily unavailable");
     }
 
     private static string GenerateId()

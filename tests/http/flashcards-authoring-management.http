@@ -78,6 +78,23 @@ Content-Type: application/json
   "imageUrl": null
 }
 
+### Update flashcard - concurrency conflict (409)
+# Requires a test profile or failure injection that maps update to concurrency_conflict.
+PUT {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "term": "hola",
+  "definition": "hello conflict",
+  "imageUrl": null
+}
+
+### List flashcards - persistence unavailable (503)
+# Requires a test profile or failure injection that maps list to persistence_unavailable.
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50
+Authorization: Bearer {{token}}
+
 ### Delete flashcard - success (200)
 DELETE {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
 Authorization: Bearer {{token}}

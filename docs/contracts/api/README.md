@@ -33,13 +33,30 @@ The flashcard authoring and management epic is implemented against these contrac
 - Backend and frontend tracks were delivered in parallel using ADR 0001 and these contracts as the shared source of truth.
 - TanStack Query cache behavior in frontend implementation follows the `frontend_contract_notes` policies in each contract file.
 
+### Persistence Error Behavior Highlights (Implemented)
+
+- `409 concurrency_conflict`
+	- Used for mutation conflict scenarios where an update/delete collides with a concurrent operation.
+	- Implemented in mutation contracts where conflict handling is required (`flashcards-update-contract.yaml`, `flashcards-delete-contract.yaml`).
+	- Frontend contract notes require refetch/rollback flows before retry.
+- `503 persistence_unavailable`
+	- Used when PostgreSQL persistence is temporarily unavailable.
+	- Present across CRUD contracts as a recoverable service-unavailable state.
+	- Frontend contract notes require non-destructive retry guidance and avoidance of unsafe optimistic persistence assumptions.
+
 ### Test Evidence (High-Level)
 
 - Backend handoff reports successful build and passing backend automated tests for flashcard CRUD.
 - Frontend handoff reports successful build and passing frontend automated tests for flashcard list/create/detail/edit/delete flows.
 
+### Test Strategy and Prerequisites (Current)
+
+- Integration and persistence-focused tests rely on PostgreSQL containers via `Testcontainers.PostgreSql`.
+- Docker runtime is required to execute container-backed integration tests.
+- EF migration tooling requires `dotnet-ef` and `Microsoft.EntityFrameworkCore.Design` dependencies in migration/startup projects.
+
 ### Known Follow-Ups and Risks
 
 - HTTP autotests are still needed to harden endpoint-level contract regression detection.
-- Durable persistence strategy remains a planned follow-up.
+- Add a contract-facing migration troubleshooting quick-reference with sample failure signatures after CI pipeline migration checks are standardized.
 - Manual frontend visual QA browser matrix has not yet been completed.

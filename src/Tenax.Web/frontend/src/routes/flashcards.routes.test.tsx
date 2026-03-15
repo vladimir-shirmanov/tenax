@@ -105,6 +105,73 @@ describe("flashcard routes", () => {
     );
   });
 
+  it("renders recoverable list error for persistence outage with retry", async () => {
+    const fetchMock = jest
+      .spyOn(global, "fetch")
+      .mockImplementationOnce((input) => {
+        const url = String(input);
+        if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+          return jsonResponse(503, {
+            code: "persistence_unavailable",
+            message: "Persistence service is temporarily unavailable",
+          });
+        }
+
+        return jsonResponse(404, { code: "not_found", message: "not found" });
+      })
+      .mockImplementationOnce((input) => {
+        const url = String(input);
+        if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+          return jsonResponse(503, {
+            code: "persistence_unavailable",
+            message: "Persistence service is temporarily unavailable",
+          });
+        }
+
+        return jsonResponse(404, { code: "not_found", message: "not found" });
+      })
+      .mockImplementationOnce((input) => {
+        const url = String(input);
+        if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+          return jsonResponse(200, {
+            items: [
+              {
+                id: "fc_1",
+                deckId: "deck_123",
+                term: "hola",
+                definitionPreview: "hello",
+                hasImage: false,
+                updatedAtUtc: "2026-03-15T12:00:00Z",
+                updatedByUserId: "usr_1",
+              },
+            ],
+            page: 1,
+            pageSize: 50,
+            totalCount: 1,
+          });
+        }
+
+        return jsonResponse(404, { code: "not_found", message: "not found" });
+      });
+
+    renderRoute(
+      "/decks/:deckId/flashcards",
+      <FlashcardListRoute />,
+      "/decks/deck_123/flashcards"
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
+    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(await screen.findByText("hola")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("shows contract validation errors on create", async () => {
     jest.spyOn(global, "fetch").mockImplementation((input, init) => {
       const url = String(input);
@@ -269,6 +336,60 @@ describe("flashcard routes", () => {
         expect.stringContaining("/api/decks/deck_123/flashcards/fc_1"),
         expect.objectContaining({ method: "PUT" })
       );
+    });
+  });
+
+  it("guides retry on update concurrency conflict and reloads canonical state", async () => {
+    const fetchMock = jest
+      .spyOn(global, "fetch")
+      .mockImplementation((input, init) => {
+        const url = String(input);
+
+        if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && !init?.method) {
+          return jsonResponse(200, {
+            id: "fc_1",
+            deckId: "deck_123",
+            term: "hola",
+            definition: "hello",
+            imageUrl: null,
+            createdAtUtc: "2026-03-15T12:00:00Z",
+            updatedAtUtc: "2026-03-15T12:00:00Z",
+            createdByUserId: "usr_1",
+            updatedByUserId: "usr_1",
+          });
+        }
+
+        if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && init?.method === "PUT") {
+          return jsonResponse(409, {
+            code: "concurrency_conflict",
+            message: "Flashcard was modified by another operation. Reload and retry.",
+          });
+        }
+
+        return jsonResponse(404, { code: "not_found", message: "not found" });
+      });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId/edit",
+      <FlashcardEditRoute />,
+      "/decks/deck_123/flashcards/fc_1/edit"
+    );
+
+    const definitionInput = await screen.findByLabelText(/definition/i);
+    await userEvent.clear(definitionInput);
+    await userEvent.type(definitionInput, "hello informal");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByText(/reload latest flashcard and retry/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /reload latest/i }));
+
+    await waitFor(() => {
+      const detailCalls = fetchMock.mock.calls.filter(
+        (call) =>
+          String(call[0]).endsWith("/api/decks/deck_123/flashcards/fc_1") &&
+          !(call[1] as RequestInit | undefined)?.method
+      );
+      expect(detailCalls.length).toBeGreaterThanOrEqual(2);
     });
   });
 });

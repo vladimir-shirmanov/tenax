@@ -5,6 +5,14 @@ endpoint:
   path: "/api/decks/{deckId}/flashcards/{flashcardId}"
   owner: "Backend Developer"
 
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "200 response is returned only after transactional commit succeeds."
+
 request:
   path_params:
     - name: "deckId"
@@ -141,9 +149,37 @@ responses:
         message: "Flashcard not found"
         traceId: "00-909cb05ed6284ad697f562f57a90145a-59948455cc1e7ec4-01"
 
+    - status: 409
+      code: "concurrency_conflict"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "concurrency_conflict"
+        message: "Flashcard was modified by another operation. Reload and retry."
+        traceId: "00-2e7d5a2fd6984ae7bf0de62b3fbe3e16-e68e02ce83a241e4-01"
+
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-ad9c1d331e0f4a34832546f819186cee-2a943fdf5758fec5-01"
+
 frontend_contract_notes:
   query_key: "flashcards.update(deckId, flashcardId)"
-  cache_policy: "On success, invalidate flashcards.list(deckId) and flashcards.detail(deckId, flashcardId)."
+  cache_policy: "On success, invalidate flashcards.list(deckId) and flashcards.detail(deckId, flashcardId). On 409 concurrency_conflict, force detail refetch before allowing retry. On 503 persistence_unavailable, avoid optimistic writes and show retry guidance."
   route_usage: "routes/decks.$deckId.flashcards.$flashcardId.edit.tsx"
 
 compatibility_rules:

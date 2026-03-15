@@ -25,7 +25,7 @@ public sealed class InMemoryFlashcardRepository : IFlashcardRepository
 
         var cards = deckCards.Values
             .OrderByDescending(card => card.UpdatedAtUtc)
-            .ThenBy(card => card.Id)
+            .ThenByDescending(card => card.Id)
             .Skip(skip)
             .Take(take)
             .ToArray();
@@ -54,9 +54,40 @@ public sealed class InMemoryFlashcardRepository : IFlashcardRepository
         return Task.FromResult(flashcard);
     }
 
-    public Task<bool> DeleteAsync(string deckId, string flashcardId, CancellationToken cancellationToken)
+    public Task<bool> UpdateAsync(Flashcard flashcard, DateTimeOffset expectedUpdatedAtUtc, CancellationToken cancellationToken)
+    {
+        if (!_store.TryGetValue(flashcard.DeckId, out var deckCards))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (!deckCards.TryGetValue(flashcard.Id, out var current))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (current.UpdatedAtUtc != expectedUpdatedAtUtc)
+        {
+            return Task.FromResult(false);
+        }
+
+        deckCards[flashcard.Id] = flashcard;
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> DeleteAsync(string deckId, string flashcardId, DateTimeOffset expectedUpdatedAtUtc, CancellationToken cancellationToken)
     {
         if (!_store.TryGetValue(deckId, out var deckCards))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (!deckCards.TryGetValue(flashcardId, out var current))
+        {
+            return Task.FromResult(false);
+        }
+
+        if (current.UpdatedAtUtc != expectedUpdatedAtUtc)
         {
             return Task.FromResult(false);
         }
