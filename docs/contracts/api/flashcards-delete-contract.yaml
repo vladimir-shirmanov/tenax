@@ -1,0 +1,90 @@
+contract_version: 1
+feature: "flashcard-authoring-management"
+endpoint:
+  method: "DELETE"
+  path: "/api/decks/{deckId}/flashcards/{flashcardId}"
+  owner: "Backend Developer"
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+    - name: "flashcardId"
+      type: "string"
+      required: true
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["deleted", "id", "deckId", "deletedAtUtc"]
+      properties:
+        deleted: { type: boolean }
+        id: { type: string }
+        deckId: { type: string }
+        deletedAtUtc: { type: string, format: date-time }
+    example:
+      deleted: true
+      id: "fc_8f62f5f6"
+      deckId: "deck_123"
+      deletedAtUtc: "2026-03-15T12:20:00Z"
+
+  errors:
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-7d71ebae524f42b0964d97364f90f111-78f8fce8ba6fdaf5-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to delete this flashcard"
+        traceId: "00-6178ec7f84384c1ba8c993047949a7b8-bf67bc2692358baf-01"
+
+    - status: 404
+      code: "not_found"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "not_found"
+        message: "Flashcard not found"
+        traceId: "00-3add74403f844fd8897374b64f9c993f-c327d4c120b1d6cd-01"
+
+frontend_contract_notes:
+  query_key: "flashcards.delete(deckId, flashcardId)"
+  cache_policy: "Use optimistic remove in flashcards.list(deckId) with rollback on failure. On success, invalidate flashcards.list(deckId) and remove flashcards.detail(deckId, flashcardId) cache entry."
+  route_usage: "routes/decks.$deckId.flashcards.$flashcardId.tsx (confirmation modal/action)"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

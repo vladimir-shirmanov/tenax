@@ -1,0 +1,149 @@
+contract_version: 1
+feature: "flashcard-authoring-management"
+endpoint:
+  method: "POST"
+  path: "/api/decks/{deckId}/flashcards"
+  owner: "Backend Developer"
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+  body:
+    required: true
+    content_type: "application/json"
+    schema:
+      type: object
+      required: ["term", "definition"]
+      properties:
+        term:
+          type: string
+          minLength: 1
+          maxLength: 200
+        definition:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        imageUrl:
+          type: ["string", "null"]
+          format: uri
+          maxLength: 2048
+
+responses:
+  success:
+    status: 201
+    schema:
+      type: object
+      required:
+        [
+          "id",
+          "deckId",
+          "term",
+          "definition",
+          "imageUrl",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "createdByUserId",
+          "updatedByUserId"
+        ]
+      properties:
+        id: { type: string }
+        deckId: { type: string }
+        term: { type: string }
+        definition: { type: string }
+        imageUrl: { type: ["string", "null"], format: uri }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+        createdByUserId: { type: ["string", "null"] }
+        updatedByUserId: { type: ["string", "null"] }
+    example:
+      id: "fc_8f62f5f6"
+      deckId: "deck_123"
+      term: "hola"
+      definition: "hello"
+      imageUrl: "https://cdn.tenax.dev/media/flashcards/fc_8f62f5f6.png"
+      createdAtUtc: "2026-03-15T12:00:00Z"
+      updatedAtUtc: "2026-03-15T12:00:00Z"
+      createdByUserId: "usr_42"
+      updatedByUserId: "usr_42"
+
+  errors:
+    - status: 400
+      code: "validation_error"
+      schema:
+        type: object
+        required: ["code", "message", "errors"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+          errors:
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
+      example:
+        code: "validation_error"
+        message: "Request validation failed"
+        traceId: "00-b4f8c1d7c79f4ef8b8af43a5a41df365-7cc2e4c769638e53-01"
+        errors:
+          term: ["term is required"]
+          definition: ["definition must be at least 1 character"]
+
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-f2617a4fbcf5461db4348a00ed9154c8-c3053f4434c0ac9a-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to modify this deck"
+        traceId: "00-e2f59fc9cae64795a9f16ec73f570fe7-56fb9b4dc611b53a-01"
+
+    - status: 404
+      code: "deck_not_found"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "deck_not_found"
+        message: "Deck not found"
+        traceId: "00-a453ff4e82df4ef4a8c5805c98ceacfe-39dfb9d7a5d65db2-01"
+
+frontend_contract_notes:
+  query_key: "flashcards.list(deckId)"
+  cache_policy: "On success, invalidate flashcards.list(deckId). Do not prefill flashcards.detail from create response unless route navigates to detail."
+  route_usage: "routes/decks.$deckId.flashcards.new.tsx"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

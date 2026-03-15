@@ -1,0 +1,111 @@
+contract_version: 1
+feature: "flashcard-authoring-management"
+endpoint:
+  method: "GET"
+  path: "/api/decks/{deckId}/flashcards/{flashcardId}"
+  owner: "Backend Developer"
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+    - name: "flashcardId"
+      type: "string"
+      required: true
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required:
+        [
+          "id",
+          "deckId",
+          "term",
+          "definition",
+          "imageUrl",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "createdByUserId",
+          "updatedByUserId"
+        ]
+      properties:
+        id: { type: string }
+        deckId: { type: string }
+        term: { type: string }
+        definition: { type: string }
+        imageUrl: { type: ["string", "null"], format: uri }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+        createdByUserId: { type: ["string", "null"] }
+        updatedByUserId: { type: ["string", "null"] }
+    example:
+      id: "fc_8f62f5f6"
+      deckId: "deck_123"
+      term: "hola"
+      definition: "hello"
+      imageUrl: "https://cdn.tenax.dev/media/flashcards/fc_8f62f5f6.png"
+      createdAtUtc: "2026-03-15T12:00:00Z"
+      updatedAtUtc: "2026-03-15T12:00:00Z"
+      createdByUserId: "usr_42"
+      updatedByUserId: "usr_42"
+
+  errors:
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-4fd3683eea6349168f747a5bcdf0e49c-8a3c0c2c7efb67dd-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to view this flashcard"
+        traceId: "00-0144c8fe2468447e9f674095f5ca5f0a-e17e2364f835a2f5-01"
+
+    - status: 404
+      code: "not_found"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "not_found"
+        message: "Flashcard not found"
+        traceId: "00-e6f80f185f4943c9a2712ea5b7468207-58eeccf1d7b47e9b-01"
+
+frontend_contract_notes:
+  query_key: "flashcards.detail(deckId, flashcardId)"
+  cache_policy: "staleTime=30000, retry=1. Prime from list item only for term/preview fields; fetch full detail on route load."
+  route_usage: "routes/decks.$deckId.flashcards.$flashcardId.tsx"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

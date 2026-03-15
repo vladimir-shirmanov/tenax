@@ -1,0 +1,65 @@
+contract_version: 1
+feature: "template-example"
+endpoint:
+  method: "GET"
+  path: "/api/template-example/{id}"
+  owner: "Backend Developer"
+
+request:
+  path_params:
+    - name: "id"
+      type: "string"
+      required: true
+  query_params: []
+  headers: []
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["id", "name", "updatedAtUtc"]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        updatedAtUtc: { type: string, format: date-time }
+    example:
+      id: "deck_123"
+      name: "Spanish Basics"
+      updatedAtUtc: "2026-03-15T12:00:00Z"
+
+  errors:
+    - status: 400
+      code: "validation_error"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details: { type: array, items: { type: string } }
+      example:
+        code: "validation_error"
+        message: "Invalid id format"
+        details: ["id must be a non-empty string"]
+
+    - status: 404
+      code: "not_found"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+      example:
+        code: "not_found"
+        message: "Template example not found"
+
+frontend_contract_notes:
+  query_key: "templateExample.byId(id)"
+  cache_policy: "staleTime=30000, retry=1"
+  route_usage: "routes/template-example.$id.tsx"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

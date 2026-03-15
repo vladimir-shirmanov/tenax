@@ -1,0 +1,151 @@
+contract_version: 1
+feature: "flashcard-authoring-management"
+endpoint:
+  method: "PUT"
+  path: "/api/decks/{deckId}/flashcards/{flashcardId}"
+  owner: "Backend Developer"
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+    - name: "flashcardId"
+      type: "string"
+      required: true
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+  body:
+    required: true
+    content_type: "application/json"
+    schema:
+      type: object
+      required: ["term", "definition"]
+      properties:
+        term:
+          type: string
+          minLength: 1
+          maxLength: 200
+        definition:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        imageUrl:
+          type: ["string", "null"]
+          format: uri
+          maxLength: 2048
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required:
+        [
+          "id",
+          "deckId",
+          "term",
+          "definition",
+          "imageUrl",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "createdByUserId",
+          "updatedByUserId"
+        ]
+      properties:
+        id: { type: string }
+        deckId: { type: string }
+        term: { type: string }
+        definition: { type: string }
+        imageUrl: { type: ["string", "null"], format: uri }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+        createdByUserId: { type: ["string", "null"] }
+        updatedByUserId: { type: ["string", "null"] }
+    example:
+      id: "fc_8f62f5f6"
+      deckId: "deck_123"
+      term: "hola"
+      definition: "hello (informal greeting)"
+      imageUrl: null
+      createdAtUtc: "2026-03-15T12:00:00Z"
+      updatedAtUtc: "2026-03-15T12:10:00Z"
+      createdByUserId: "usr_42"
+      updatedByUserId: "usr_42"
+
+  errors:
+    - status: 400
+      code: "validation_error"
+      schema:
+        type: object
+        required: ["code", "message", "errors"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+          errors:
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
+      example:
+        code: "validation_error"
+        message: "Request validation failed"
+        traceId: "00-7ffd4d8e4375413f93f83f6ef7620b90-e9ec2ff6b062ea0b-01"
+        errors:
+          definition: ["definition is required"]
+
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-ef8022e07f6c4cd8af22780d6359d51d-40c6f6a8b9fc7fd9-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to modify this flashcard"
+        traceId: "00-288d7f98023541cdb89d697574fe5a3a-f332995f376625e8-01"
+
+    - status: 404
+      code: "not_found"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "not_found"
+        message: "Flashcard not found"
+        traceId: "00-909cb05ed6284ad697f562f57a90145a-59948455cc1e7ec4-01"
+
+frontend_contract_notes:
+  query_key: "flashcards.update(deckId, flashcardId)"
+  cache_policy: "On success, invalidate flashcards.list(deckId) and flashcards.detail(deckId, flashcardId)."
+  route_usage: "routes/decks.$deckId.flashcards.$flashcardId.edit.tsx"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

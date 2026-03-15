@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "pwsh -NoProfile -File ./.github/hooks/scripts/validate-dotnet.ps1",
+        "windows": {
+          "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./.github/hooks/scripts/validate-dotnet.ps1"
+        },
+        "timeout": 300
+      }
+    ]
+  }
+}
