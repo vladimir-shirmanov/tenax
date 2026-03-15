@@ -11,6 +11,7 @@
 - Tenax Web already validates bearer JWTs and defaults local authority to `http://localhost:8080/realms/tenax`.
 - Current AppHost orchestrates PostgreSQL, Tenax.Web, and optional frontend Vite app, but does not provision an identity provider.
 - Developer onboarding and deterministic auth testing require a local IdP with repeatable realm/client/role bootstrap data.
+- Local SPA login now also depends on a repeatable public frontend client that matches the AppHost-projected runtime auth defaults.
 - Scope is orchestration and local infrastructure only. Domain/Application/Web feature behavior and API payload schemas are out of scope.
 - Key requirement: Keycloak resource must run only in Development and must not affect non-development environments.
 
@@ -39,6 +40,10 @@
   - Primary location: `src/Tenax.AppHost/keycloak/import/`
   - Required base file: `src/Tenax.AppHost/keycloak/import/tenax-realm-dev.json`
   - Additional files may be added for split exports, but must remain deterministic and development-safe.
+- Required development realm alignment:
+  - The imported realm includes a public `tenax-spa` OpenID Connect client for SPA Authorization Code + PKCE login.
+  - The client enables standard flow, disables implicit flow and service accounts, and carries an audience mapper for `tenax-web-api`.
+  - Allowed redirect URIs and web origins include both `http://127.0.0.1:5173` and `http://localhost:5173` so the AppHost default and common manual local overrides both work.
 - Explicit boundary rule:
   - AppHost owns container orchestration, import mounting, and development-time env projection.
   - Tenax.Web continues to consume generic JWT bearer configuration keys only; no direct dependency on Keycloak SDKs is introduced.
@@ -58,9 +63,9 @@
   - Import-on-startup can fail if malformed JSON is committed, blocking local auth flows.
   - Secrets for local admin bootstrap must remain development-only and not reused outside local stacks.
 - Follow-up tasks:
-  - Backend Developer implements AppHost Keycloak resource wiring, mount/import flags, and Tenax.Web env propagation.
-  - QA adds/updates auth boundary smoke tests to execute against AppHost-provisioned Keycloak.
-  - Docs/runbook update for local startup and realm import troubleshooting.
+  - Maintain the imported `tenax-spa` client and AppHost-projected frontend defaults together when local auth settings change.
+  - Keep runbook troubleshooting notes aligned with realm import redirect URI and audience mapper changes.
+  - Extend deterministic dev realm coverage if additional local clients or seeded users are introduced.
 
 ## Out Of Scope
 - Production Keycloak deployment topology and secrets management.
@@ -86,7 +91,14 @@
   - `dotnet run --project src/Tenax.AppHost/Tenax.AppHost.csproj` with Development environment and verify Keycloak resource is present.
   - Confirm Tenax.Web effective auth config points to AppHost-provisioned Keycloak authority.
   - Restart AppHost and verify realm import remains deterministic (expected clients/realm available).
+  - Verify the imported realm exposes the public `tenax-spa` client with `tenax-web-api` audience mapping and local redirect URIs for both `127.0.0.1` and `localhost`.
 - QA targeted checks:
   - Execute `tests/http/auth-jwt-boundary.http` against AppHost-launched stack.
   - Verify `401/403` behavior unchanged from existing auth boundary contracts.
   - Verify protected API success path with JWT issued by imported `tenax` realm client.
+
+## Implementation Evidence
+
+- AppHost projects development frontend auth settings through `src/Tenax.AppHost/FrontendAuthEnvironment.cs` and `src/Tenax.AppHost/Program.cs`.
+- The development realm import now includes the public `tenax-spa` client in `src/Tenax.AppHost/keycloak/import/tenax-realm-dev.json`.
+- Regression coverage exists in `tests/Tenax.AppHost.Tests/FrontendAuthEnvironmentTests.cs` and `tests/Tenax.AppHost.Tests/DevelopmentRealmImportTests.cs`.

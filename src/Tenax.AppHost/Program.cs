@@ -24,8 +24,8 @@ if (isDevelopment)
 
     web.WithReference(keycloak)
         .WaitFor(keycloak)
-        .WithEnvironment("Authentication__JwtBearer__Authority", "http://localhost:8080/realms/tenax")
-        .WithEnvironment("Authentication__JwtBearer__Audience", "tenax-web-api")
+        .WithEnvironment("Authentication__JwtBearer__Authority", FrontendAuthEnvironment.DevelopmentAuthority)
+        .WithEnvironment("Authentication__JwtBearer__Audience", FrontendAuthEnvironment.DevelopmentAudience)
         .WithEnvironment("Authentication__JwtBearer__RequireHttpsMetadata", "false");
 }
 
@@ -33,9 +33,17 @@ var skipFrontend = IsEnabled(Environment.GetEnvironmentVariable("TENAX_APPHOST_S
 
 if (!skipFrontend)
 {
-    builder.AddViteApp("tenax-frontend", "../Tenax.Web/frontend", "dev")
+    var frontend = builder.AddViteApp("tenax-frontend", "../Tenax.Web/frontend", "dev")
         .WithReference(web)
         .WaitFor(web);
+
+    if (isDevelopment)
+    {
+        foreach (var environmentVariable in FrontendAuthEnvironment.GetDevelopmentViteEnvironment(Environment.GetEnvironmentVariable))
+        {
+            frontend.WithEnvironment(environmentVariable.Key, environmentVariable.Value);
+        }
+    }
 }
 
 builder.Build().Run();

@@ -1,0 +1,43 @@
+stage: docs
+scope:
+  summary: "Define the contract-first fix for missing SPA runtime OIDC config by projecting frontend-safe auth settings from AppHost/Vite into window.TENAX_AUTH_CONFIG without changing backend API auth boundaries."
+  out_of_scope:
+    - "Implementing production code changes in AppHost, Tenax.Web, or the frontend"
+    - "Adding backend /api/auth/* transport or config endpoints"
+    - "Changing JWT bearer validation behavior or protected API response payloads"
+acceptance_criteria:
+  - "ADR documents a stable browser runtime auth config contract that preserves ADR 0006 and ADR 0008 boundaries."
+  - "Contract defines source precedence, required fields, optional fields, defaults, validation, and failure semantics for AppHost/Vite delivery."
+  - "Implementation guidance splits work cleanly between AppHost env projection and frontend bootstrap initialization."
+  - "Backend API surface remains explicitly unchanged in the documented approach."
+files_changed:
+  - "docs/adr/0009-frontend-runtime-auth-config-bootstrap.md"
+  - "docs/contracts/api/frontend-runtime-auth-config-bootstrap-contract.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-15-frontend-runtime-auth-config-docs-handoff.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-15-frontend-runtime-auth-config-issue-tasks.yaml"
+test_evidence:
+  targeted:
+    - command: "docs-only source review of src/Tenax.AppHost/Program.cs, src/Tenax.Web/frontend/src/api/auth.ts, src/Tenax.Web/frontend/src/main.tsx, and src/Tenax.Web/frontend/index.html"
+      outcome: "Completed; root cause and contract boundary confirmed without changing runtime code."
+  full_suite:
+    - command: "not run (architecture/docs-only stage)"
+      outcome: "No executable validation performed in this handoff."
+behavioral_impact:
+  api_changes:
+    - "No backend HTTP endpoint, request schema, or response schema changes are introduced by this architecture handoff."
+    - "Frontend login continues to rely on frontend-owned OIDC flow and browser bootstrap config rather than backend auth transport."
+  data_changes:
+    - "No database or persistence changes."
+  config_changes:
+    - "AppHost implementation is expected to project VITE_TENAX_AUTH_AUTHORITY, VITE_TENAX_AUTH_CLIENT_ID, VITE_TENAX_AUTH_REDIRECT_URI, and optional related frontend-safe auth values into the Vite app for local development."
+    - "Frontend implementation is expected to assign window.TENAX_AUTH_CONFIG before React render using window-first, Vite-env-second precedence."
+risks:
+  - "Future hosted frontend deployments still need a host-level bootstrap path to populate window.TENAX_AUTH_CONFIG without introducing a backend config endpoint."
+  - "If AppHost and frontend use inconsistent env names, login will continue to fail with oidc_configuration_invalid."
+  - "This handoff defines public SPA config only; implementers must not place secrets in the runtime auth config object."
+next_agent_expectations:
+  - "backend: update src/Tenax.AppHost/Program.cs so AddViteApp receives the contract-defined VITE_TENAX_AUTH_* values while leaving Tenax.Web API behavior unchanged."
+  - "frontend: add a bootstrap initializer in the SPA entrypoint that validates and publishes window.TENAX_AUTH_CONFIG before auth.ts can create UserManager."
+  - "qa: add targeted regression coverage for successful runtime config bootstrap and for the existing missing-config failure message when required values are absent."
+issue_tasks:
+  - "See docs/ways-of-work/runbook/handoffs/2026-03-15-frontend-runtime-auth-config-issue-tasks.yaml"

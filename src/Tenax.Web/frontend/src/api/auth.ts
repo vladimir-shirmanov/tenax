@@ -2,28 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { User, UserManager, UserManagerSettings, WebStorageStateStore } from "oidc-client-ts";
 import { ApiError } from "./errors";
 import { AuthMenuLink, AuthSessionResponse, AuthSessionUser } from "./types";
+import { DEFAULT_TENAX_AUTH_SCOPE, readBrowserAuthConfig, TenaxAuthConfig } from "./auth-config";
 import {
   clearAuthSession,
   persistAuthSession,
 } from "./auth-storage";
-
-type TenaxAuthConfig = {
-  authority: string;
-  clientId: string;
-  redirectUri: string;
-  postLogoutRedirectUri?: string;
-  scope?: string;
-  audience?: string;
-  defaultDeckId?: string;
-};
-
-declare global {
-  interface Window {
-    TENAX_AUTH_CONFIG?: TenaxAuthConfig;
-  }
-}
-
-const DEFAULT_SCOPE = "openid profile email";
 const AUTH_LOG_PREFIX = "[auth.oidc]";
 
 let authManager: UserManager | null = null;
@@ -42,24 +25,8 @@ export const authKeys = {
   session: ["auth", "clientSession"] as const,
 };
 
-const normalizeAuthority = (authority: string) => authority.replace(/\/$/, "");
-
 const readAuthConfig = (): TenaxAuthConfig | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const config = window.TENAX_AUTH_CONFIG;
-  if (!config || !config.authority || !config.clientId || !config.redirectUri) {
-    return null;
-  }
-
-  return {
-    ...config,
-    authority: normalizeAuthority(config.authority),
-    scope: config.scope ?? DEFAULT_SCOPE,
-    defaultDeckId: config.defaultDeckId ?? "default",
-  };
+  return readBrowserAuthConfig();
 };
 
 const toMenuLinks = (defaultDeckId: string): AuthMenuLink[] => [
@@ -92,7 +59,7 @@ const createManagerSettings = (config: TenaxAuthConfig): UserManagerSettings => 
   redirect_uri: config.redirectUri,
   post_logout_redirect_uri: config.postLogoutRedirectUri ?? config.redirectUri,
   response_type: "code",
-  scope: config.scope ?? DEFAULT_SCOPE,
+  scope: config.scope ?? DEFAULT_TENAX_AUTH_SCOPE,
   userStore: new WebStorageStateStore({ store: window.sessionStorage }),
   extraQueryParams: config.audience ? { audience: config.audience } : undefined,
 });

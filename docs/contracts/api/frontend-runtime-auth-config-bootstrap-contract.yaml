@@ -1,0 +1,207 @@
+contract_version: 1
+contract_type: "runtime-config"
+feature: "frontend-runtime-auth-config-bootstrap"
+status: "active"
+owners:
+  - "Architecture"
+  - "Backend Developer"
+  - "Frontend Developer"
+related_adr:
+  - "docs/adr/0009-frontend-runtime-auth-config-bootstrap.md"
+  - "docs/adr/0008-frontend-oidc-client-ts-auth-flow.md"
+  - "docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md"
+related_contracts:
+  - "docs/contracts/api/frontend-oidc-client-ts-auth-session-interaction-contract.yaml"
+  - "docs/contracts/api/auth-jwt-bearer-discovery-validation-boundary-contract.yaml"
+
+scope:
+  in_scope:
+    - "Browser bootstrap of window.TENAX_AUTH_CONFIG before React application render"
+    - "AppHost delivery of frontend-safe VITE_TENAX_AUTH_* values to the Vite dev process"
+    - "Validation and normalization semantics for authority, clientId, redirectUri, postLogoutRedirectUri, audience, defaultDeckId, and optional scope"
+    - "Source precedence between pre-existing window config and Vite env fallback"
+  out_of_scope:
+    - "Backend /api/auth/* transport endpoints"
+    - "JWT bearer validation behavior for protected APIs"
+    - "Identity provider secret material or confidential client configuration"
+
+interaction_endpoints:
+  - name: "runtime_auth_config_bootstrap"
+    method: "CLIENT_BOOTSTRAP"
+    path: "frontend://runtime/auth-config"
+    owner: "Frontend Developer"
+    trigger: "Browser loads the SPA entrypoint before React mounts"
+    request:
+      sources:
+        window_authoritative:
+          description: "If already present, window.TENAX_AUTH_CONFIG is the first source checked."
+          schema:
+            type: object
+            required: ["authority", "clientId", "redirectUri"]
+            properties:
+              authority: { type: string }
+              clientId: { type: string }
+              redirectUri: { type: string, format: uri-reference }
+              postLogoutRedirectUri: { type: string, format: uri-reference }
+              audience: { type: string }
+              defaultDeckId: { type: string }
+              scope: { type: string }
+        vite_env_fallback:
+          description: "Used only when window.TENAX_AUTH_CONFIG is absent or uninitialized."
+          required_keys:
+            - "VITE_TENAX_AUTH_AUTHORITY"
+            - "VITE_TENAX_AUTH_CLIENT_ID"
+            - "VITE_TENAX_AUTH_REDIRECT_URI"
+          optional_keys:
+            - "VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI"
+            - "VITE_TENAX_AUTH_AUDIENCE"
+            - "VITE_TENAX_AUTH_DEFAULT_DECK_ID"
+            - "VITE_TENAX_AUTH_SCOPE"
+      invariants:
+        - "No network request is issued to obtain SPA auth runtime config."
+        - "No /api/auth/* endpoint participates in config delivery."
+        - "Only frontend-safe public values may be projected through this contract."
+    responses:
+      success:
+        status: 200
+        schema:
+          type: object
+          required:
+            - "authority"
+            - "clientId"
+            - "redirectUri"
+            - "postLogoutRedirectUri"
+            - "defaultDeckId"
+          properties:
+            authority:
+              type: string
+              description: "Normalized authority without trailing slash."
+            clientId:
+              type: string
+            redirectUri:
+              type: string
+              format: uri-reference
+            postLogoutRedirectUri:
+              type: string
+              format: uri-reference
+            audience:
+              type: ["string", "null"]
+            defaultDeckId:
+              type: string
+            scope:
+              type: string
+        example:
+          authority: "http://localhost:8080/realms/tenax"
+          clientId: "tenax-spa"
+          redirectUri: "http://127.0.0.1:5173/"
+          postLogoutRedirectUri: "http://127.0.0.1:5173/"
+          audience: "tenax-web-api"
+          defaultDeckId: "default"
+          scope: "openid profile email"
+      errors:
+        - status: 500
+          code: "oidc_configuration_invalid"
+          schema:
+            type: object
+            required: ["code", "message", "details"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+              details:
+                type: array
+                items: { type: string }
+          example:
+            code: "oidc_configuration_invalid"
+            message: "Missing OIDC authority, client id, or redirect URI."
+            details:
+              - "window.TENAX_AUTH_CONFIG did not contain authority, clientId, and redirectUri"
+              - "VITE_TENAX_AUTH_AUTHORITY, VITE_TENAX_AUTH_CLIENT_ID, and VITE_TENAX_AUTH_REDIRECT_URI were not all available"
+        - status: 409
+          code: "runtime_config_contract_violation"
+          schema:
+            type: object
+            required: ["code", "message", "details"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+              details:
+                type: array
+                items: { type: string }
+          example:
+            code: "runtime_config_contract_violation"
+            message: "Frontend runtime auth config drifted from the approved contract."
+            details:
+              - "Do not rename window.TENAX_AUTH_CONFIG fields without updating the contract"
+              - "Do not introduce backend config transport endpoints for SPA auth bootstrap"
+    observable_signals:
+      - "window.TENAX_AUTH_CONFIG is defined before the React root renders when valid config is available"
+      - "authority is normalized without a trailing slash"
+      - "postLogoutRedirectUri defaults to redirectUri when omitted"
+      - "defaultDeckId defaults to default when omitted"
+      - "Missing required config continues to surface as oidc_configuration_invalid when login or callback handling requires auth config"
+
+validation_rules:
+  required_fields:
+    - "authority"
+    - "clientId"
+    - "redirectUri"
+  optional_fields:
+    - "postLogoutRedirectUri"
+    - "audience"
+    - "defaultDeckId"
+    - "scope"
+  normalization:
+    - "Trim leading and trailing whitespace from all string values before validation."
+    - "Strip one trailing slash from authority after trimming."
+    - "Treat blank optional values as absent."
+  defaults:
+    postLogoutRedirectUri: "redirectUri"
+    defaultDeckId: "default"
+    scope: "openid profile email"
+
+delivery_channels:
+  apphost_vite_dev:
+    owner: "Backend Developer"
+    mechanism: "Aspire AppHost WithEnvironment on AddViteApp"
+    defaults:
+      authority: "http://localhost:8080/realms/tenax"
+      clientId: "tenax-spa"
+      redirectUri: "http://127.0.0.1:5173/"
+      postLogoutRedirectUri: "http://127.0.0.1:5173/"
+      audience: "tenax-web-api"
+      defaultDeckId: "default"
+      scope: "openid profile email"
+    required_env:
+      - "VITE_TENAX_AUTH_AUTHORITY"
+      - "VITE_TENAX_AUTH_CLIENT_ID"
+      - "VITE_TENAX_AUTH_REDIRECT_URI"
+    optional_env:
+      - "VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI"
+      - "VITE_TENAX_AUTH_AUDIENCE"
+      - "VITE_TENAX_AUTH_DEFAULT_DECK_ID"
+      - "VITE_TENAX_AUTH_SCOPE"
+    local_client_alignment:
+      - "The development realm import must include a public tenax-spa client compatible with Authorization Code + PKCE."
+      - "The imported client must allow both http://127.0.0.1:5173 and http://localhost:5173 as local redirect/web origins so the AppHost default and manual local overrides both work."
+  future_hosted_frontend:
+    owner: "Frontend Developer"
+    mechanism: "Host-provided pre-bootstrap assignment to window.TENAX_AUTH_CONFIG"
+    invariants:
+      - "The browser contract shape must remain identical to the success schema in this file."
+      - "Hosted delivery must not require adding a Tenax backend config endpoint."
+
+frontend_contract_notes:
+  query_key: "['auth', 'clientSession']"
+  cache_policy: "No query should execute a network fetch for auth config; auth session queries consume browser bootstrap state only."
+  route_usage: "SPA bootstrap in src/main.tsx through src/api/auth-config.ts or an equivalent dedicated initializer must complete before auth.ts creates UserManager instances."
+  implementation_split:
+    - "AppHost supplies VITE_TENAX_AUTH_* values for local dev orchestration."
+    - "Frontend maps runtime sources into window.TENAX_AUTH_CONFIG and preserves existing auth.ts failure semantics."
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  invariants:
+    - "Backend API surface remains unchanged; no /api/auth/* runtime config endpoint is introduced."
+    - "window.TENAX_AUTH_CONFIG stays the sole Tenax-owned browser contract consumed by auth.ts."
+    - "All values delivered through this contract are public SPA configuration, never secrets."

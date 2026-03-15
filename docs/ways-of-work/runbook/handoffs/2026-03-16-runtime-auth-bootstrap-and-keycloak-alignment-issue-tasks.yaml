@@ -1,0 +1,13 @@
+issue_tasks:
+  - id: "architecture-define-hosted-runtime-auth-bootstrap"
+    title: "Define hosted SPA runtime auth config delivery without backend config endpoints"
+    owner: "Architecture"
+    depends_on: []
+    deliverables:
+      - "Choose the host-owned mechanism that assigns window.TENAX_AUTH_CONFIG before React render for non-AppHost deployments."
+      - "Document deployment-time ownership, operational steps, and rollback guidance for the hosted bootstrap path."
+      - "Keep the hosted mechanism additive to the existing browser contract in docs/contracts/api/frontend-runtime-auth-config-bootstrap-contract.yaml."
+    acceptance_criteria:
+      - "Hosted frontend delivery reuses the same window.TENAX_AUTH_CONFIG field names, validation rules, and failure semantics already documented for development."
+      - "No backend /api/auth/* runtime config endpoint is introduced."
+      - "No secrets are placed into browser runtime auth configuration."

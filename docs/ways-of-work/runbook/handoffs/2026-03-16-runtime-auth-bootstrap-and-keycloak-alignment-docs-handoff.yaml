@@ -1,0 +1,50 @@
+stage: docs
+scope:
+  summary: "Update active authentication docs to reflect the delivered runtime auth bootstrap fix and local Keycloak SPA client alignment in development."
+  out_of_scope:
+    - "Changing AppHost, frontend, backend, or test implementation code"
+    - "Running build or test commands from the docs agent"
+    - "Changing backend API contracts, endpoint payloads, or auth boundary behavior"
+acceptance_criteria:
+  - "The active auth boundary runbook documents the browser bootstrap sequence, AppHost-projected VITE_TENAX_AUTH_* defaults, and the preserved no-/api/auth/* boundary."
+  - "ADR 0007, ADR 0008, and ADR 0009 reflect the implemented runtime bootstrap path, public tenax-spa dev client, and existing regression coverage."
+  - "The runtime bootstrap and Keycloak dev orchestration contracts align with the implemented 127.0.0.1 default redirect URI while documenting localhost as a supported local override."
+  - "Documentation changes remain confined to docs artifacts; no product code is modified by this handoff."
+files_changed:
+  - "docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md"
+  - "docs/adr/0007-development-only-keycloak-orchestration-and-realm-import.md"
+  - "docs/adr/0008-frontend-oidc-client-ts-auth-flow.md"
+  - "docs/adr/0009-frontend-runtime-auth-config-bootstrap.md"
+  - "docs/contracts/api/frontend-runtime-auth-config-bootstrap-contract.yaml"
+  - "docs/contracts/api/aspire-keycloak-development-orchestration-no-api-response-changes-contract.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-16-runtime-auth-bootstrap-and-keycloak-alignment-docs-handoff.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-16-runtime-auth-bootstrap-and-keycloak-alignment-issue-tasks.yaml"
+test_evidence:
+  targeted:
+    - command: "source review of src/Tenax.AppHost/Program.cs, src/Tenax.AppHost/FrontendAuthEnvironment.cs, src/Tenax.AppHost/keycloak/import/tenax-realm-dev.json, src/Tenax.Web/frontend/src/api/auth-config.ts, src/Tenax.Web/frontend/src/main.tsx, tests/Tenax.AppHost.Tests/FrontendAuthEnvironmentTests.cs, tests/Tenax.AppHost.Tests/DevelopmentRealmImportTests.cs, src/Tenax.Web/frontend/src/api/auth-config.test.ts, and src/Tenax.Web/frontend/src/routes/home.route.test.tsx"
+      outcome: "Completed; docs now match the delivered runtime bootstrap path, development defaults, realm client alignment, and regression coverage."
+    - command: "existing local validation from terminal history: dotnet test Tenax.slnx"
+      outcome: "Passed"
+    - command: "existing local validation from terminal history: Set-Location src/Tenax.Web/frontend; npm run build"
+      outcome: "Passed"
+  full_suite:
+    - command: "not run by docs agent"
+      outcome: "No additional executable validation performed during documentation updates."
+behavioral_impact:
+  api_changes:
+    - "No backend HTTP endpoint, request contract, or response contract changes."
+    - "SPA auth bootstrap remains browser-local and does not introduce backend /api/auth/* transport."
+  data_changes:
+    - "No database, persistence, or migration changes."
+  config_changes:
+    - "Docs now record the implemented Development AppHost defaults for VITE_TENAX_AUTH_* values, including clientId tenax-spa and redirectUri/postLogoutRedirectUri http://127.0.0.1:5173/."
+    - "Docs now record that the imported dev Keycloak realm includes a public tenax-spa client with tenax-web-api audience mapping and local origins for both 127.0.0.1 and localhost."
+risks:
+  - "Hosted frontend delivery still needs a host-owned pre-bootstrap assignment mechanism for window.TENAX_AUTH_CONFIG when Tenax moves beyond AppHost/Vite development delivery."
+  - "Future edits can reintroduce drift if AppHost defaults, the imported tenax-spa client, and the runtime bootstrap contract are not updated together."
+  - "The docs intentionally describe only public SPA configuration; no secret material belongs in window.TENAX_AUTH_CONFIG or VITE_TENAX_AUTH_* values."
+next_agent_expectations:
+  - "release: use the updated auth boundary runbook when validating local auth startup and troubleshooting development Keycloak alignment."
+  - "future backend/frontend changes to local auth defaults must update ADR 0007, ADR 0009, the runtime bootstrap contract, and the dev runbook in the same change."
+issue_tasks:
+  - "See docs/ways-of-work/runbook/handoffs/2026-03-16-runtime-auth-bootstrap-and-keycloak-alignment-issue-tasks.yaml"

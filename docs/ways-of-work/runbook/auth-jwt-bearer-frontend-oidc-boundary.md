@@ -46,6 +46,18 @@ Operational expectation:
 
 Frontend auth session behavior is local-session based and client-managed:
 
+- Browser runtime auth config bootstrap:
+  - `window.TENAX_AUTH_CONFIG` is initialized before React render in `src/Tenax.Web/frontend/src/main.tsx`.
+  - The bootstrap logic lives in `src/Tenax.Web/frontend/src/api/auth-config.ts` and resolves config with window-first, Vite-env-second precedence.
+  - Missing required runtime config preserves the existing `oidc_configuration_invalid` failure contract; no backend config fetch is introduced.
+- Local AppHost development defaults:
+  - `VITE_TENAX_AUTH_AUTHORITY=http://localhost:8080/realms/tenax`
+  - `VITE_TENAX_AUTH_CLIENT_ID=tenax-spa`
+  - `VITE_TENAX_AUTH_REDIRECT_URI=http://127.0.0.1:5173/`
+  - `VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI=http://127.0.0.1:5173/`
+  - `VITE_TENAX_AUTH_AUDIENCE=tenax-web-api`
+  - `VITE_TENAX_AUTH_DEFAULT_DECK_ID=default`
+  - `VITE_TENAX_AUTH_SCOPE=openid profile email`
 - Access token storage key: `tenax.auth.session.v1`
 - `oidc-client-ts` transient state uses browser `sessionStorage` through `WebStorageStateStore`; do not rely on hard-coded library key names in docs or app logic.
 - React Query auth session key: `['auth', 'clientSession']`
@@ -71,12 +83,27 @@ Homepage behavior expectations:
   - `/decks`
   - `/decks/{defaultDeckId}/flashcards`
 
+## Local Development Keycloak Alignment
+
+- The development realm import in `src/Tenax.AppHost/keycloak/import/tenax-realm-dev.json` includes a public `tenax-spa` client for SPA Authorization Code + PKCE login.
+- The imported SPA client includes:
+  - Standard flow enabled.
+  - PKCE `S256` enforcement.
+  - An audience mapper for `tenax-web-api` access tokens.
+  - Redirect URIs and web origins for both `http://127.0.0.1:5173` and `http://localhost:5173`.
+- AppHost uses `http://127.0.0.1:5173/` as the default projected redirect URI so local Vite startup and imported Keycloak client settings stay aligned.
+- `http://localhost:5173/` remains a supported manual override because the dev realm import explicitly allows it.
+
 ## Contract and ADR References
 
 - `docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md`
+- `docs/adr/0007-development-only-keycloak-orchestration-and-realm-import.md`
 - `docs/adr/0008-frontend-oidc-client-ts-auth-flow.md`
+- `docs/adr/0009-frontend-runtime-auth-config-bootstrap.md`
 - `docs/contracts/api/auth-jwt-bearer-discovery-validation-boundary-contract.yaml`
+- `docs/contracts/api/aspire-keycloak-development-orchestration-no-api-response-changes-contract.yaml`
 - `docs/contracts/api/frontend-oidc-client-ts-auth-session-interaction-contract.yaml`
+- `docs/contracts/api/frontend-runtime-auth-config-bootstrap-contract.yaml`
 - `docs/contracts/api/auth-session-contract.yaml` (superseded)
 - `docs/contracts/api/auth-oidc-login-start-contract.yaml` (superseded)
 - `docs/contracts/api/auth-oidc-callback-contract.yaml` (superseded)

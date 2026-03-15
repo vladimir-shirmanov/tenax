@@ -71,6 +71,21 @@ describe("home route auth behavior", () => {
     expect(calledUrls.some((url) => url.includes("/api/auth/"))).toBe(false);
   });
 
+  it("shows the approved missing-config error when runtime auth config is unavailable", async () => {
+    renderRoute("/", <HomeRoute />, "/");
+
+    expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(
+      await screen.findByRole("alert", {
+        name: "",
+      })
+    ).toHaveTextContent(/missing oidc authority, client id, or redirect uri\./i);
+    expect(mockSigninRedirect).not.toHaveBeenCalled();
+  });
+
   it("completes callback and restores return URL", async () => {
     window.TENAX_AUTH_CONFIG = {
       authority: "https://idp.example.com/realms/tenax",

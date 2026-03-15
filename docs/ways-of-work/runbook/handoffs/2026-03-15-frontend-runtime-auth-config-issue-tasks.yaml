@@ -1,0 +1,41 @@
+issue_tasks:
+  - id: "backend-apphost-project-frontend-auth-env"
+    title: "Project frontend-safe OIDC runtime env vars into the Vite app from AppHost"
+    owner: "Backend Developer"
+    depends_on: []
+    deliverables:
+      - "Update src/Tenax.AppHost/Program.cs to pass VITE_TENAX_AUTH_AUTHORITY, VITE_TENAX_AUTH_CLIENT_ID, and VITE_TENAX_AUTH_REDIRECT_URI to AddViteApp in development."
+      - "Pass optional VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI, VITE_TENAX_AUTH_AUDIENCE, VITE_TENAX_AUTH_DEFAULT_DECK_ID, and VITE_TENAX_AUTH_SCOPE when values are available or derive stable local defaults."
+      - "Keep existing Tenax.Web Authentication__JwtBearer__* configuration and /api surface unchanged."
+    acceptance_criteria:
+      - "Running the AppHost makes the Vite process see the contract-defined VITE_TENAX_AUTH_* values."
+      - "No backend /api/auth/* endpoint is added."
+      - "Tenax.Web JWT bearer validation behavior remains unchanged."
+
+  - id: "frontend-bootstrap-window-auth-config"
+    title: "Initialize window.TENAX_AUTH_CONFIG before React render"
+    owner: "Frontend Developer"
+    depends_on:
+      - "backend-apphost-project-frontend-auth-env"
+    deliverables:
+      - "Add a bootstrap utility in the frontend entry path that reads pre-existing window.TENAX_AUTH_CONFIG first and falls back to import.meta.env.VITE_TENAX_AUTH_* values."
+      - "Apply contract-defined trimming, authority normalization, optional-field omission, and defaults for postLogoutRedirectUri, defaultDeckId, and scope."
+      - "Ensure auth.ts remains the single consumer of window.TENAX_AUTH_CONFIG and no backend config fetch is introduced."
+    acceptance_criteria:
+      - "window.TENAX_AUTH_CONFIG exists before auth.ts-driven login starts when required values are available."
+      - "Missing required values still surface as oidc_configuration_invalid with the existing user-facing message."
+      - "Future host-provided window config can override Vite env fallback without code changes to auth.ts."
+
+  - id: "qa-add-runtime-config-regression-coverage"
+    title: "Add regression tests for runtime auth config bootstrap"
+    owner: "QA"
+    depends_on:
+      - "frontend-bootstrap-window-auth-config"
+    deliverables:
+      - "Add frontend tests covering successful bootstrap from runtime sources into window.TENAX_AUTH_CONFIG."
+      - "Add regression coverage proving login failure still reports Missing OIDC authority, client id, or redirect URI when required config is absent."
+      - "Add or update AppHost/startup verification notes for local development auth wiring."
+    acceptance_criteria:
+      - "A targeted test proves login can start when AppHost-projected config is present."
+      - "A targeted test proves missing runtime config still fails with the approved contract error."
+      - "No test expects backend /api/auth/* transport requests for SPA login bootstrap."

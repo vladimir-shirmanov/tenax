@@ -9,6 +9,7 @@
 
 ## Context
 - The frontend auth flow is now implemented in `src/Tenax.Web/frontend/src/api/auth.ts` with `oidc-client-ts` and a cached `UserManager` instance.
+- Runtime auth configuration is initialized before React render in `src/Tenax.Web/frontend/src/api/auth-config.ts` and `src/Tenax.Web/frontend/src/main.tsx`, preserving `auth.ts` as the sole consumer of `window.TENAX_AUTH_CONFIG`.
 - `src/Tenax.Web/frontend/package.json` includes `oidc-client-ts`, making the library choice part of the delivered frontend dependency set.
 - Route-level tests in `src/Tenax.Web/frontend/src/routes/home.route.test.tsx` cover login redirect start, callback completion with `returnTo` restoration, callback failure handling, and logout back to anonymous state.
 - Existing architecture decisions keep auth session orchestration frontend-owned and keep backend focused on JWT bearer validation boundaries.
@@ -16,6 +17,9 @@
 ## Decision
 - Standardize frontend OIDC Authorization Code + PKCE lifecycle on `oidc-client-ts` (`UserManager` as the single authority for redirect start, callback processing, token lifecycle, and logout redirect).
 - Manual OIDC discovery, authorization URL construction, and token exchange logic are removed from the active frontend path.
+- Keep runtime config bootstrap separate from session orchestration:
+  - `auth-config.ts` resolves and normalizes browser-visible auth configuration before app render.
+  - `auth.ts` remains the only Tenax module that constructs `UserManager` instances and reads the finalized browser contract.
 - Keep backend boundary unchanged:
   - Backend does not implement login-start, callback, logout, or auth-session transport endpoints.
   - Backend remains responsible for JWT bearer token validation for protected API routes.
@@ -41,6 +45,8 @@
   - Extend route coverage if dedicated callback or silent-renew routes are introduced later.
 
 ## Implementation Notes
+- App bootstrap calls `initializeRuntimeAuthConfig(...)` from `src/main.tsx` before the React tree mounts.
+- Runtime config resolution preserves an existing valid `window.TENAX_AUTH_CONFIG`; otherwise it falls back to `import.meta.env.VITE_TENAX_AUTH_*` values.
 - Login start uses `UserManager.signinRedirect({ state: { returnTo } })` and preserves the current route when `returnTo` is not provided explicitly.
 - Callback handling runs inside `useAuthSessionQuery`; when `code` or `error` query parameters are present, `signinRedirectCallback()` is attempted before reading current user state.
 - Successful callback processing persists the active token snapshot to `tenax.auth.session.v1` and removes callback parameters from the browser URL by replacing history with the saved `returnTo` path.
@@ -48,5 +54,7 @@
 
 ## Evidence
 - Dependency evidence: `src/Tenax.Web/frontend/package.json` includes `oidc-client-ts`.
+- Implementation evidence: `src/Tenax.Web/frontend/src/api/auth-config.ts` and `src/Tenax.Web/frontend/src/main.tsx` bootstrap runtime auth config before `src/Tenax.Web/frontend/src/api/auth.ts` creates `UserManager` instances.
 - Implementation evidence: `src/Tenax.Web/frontend/src/api/auth.ts` owns login, callback, logout, and session reads through `UserManager`.
-- Test evidence: `src/Tenax.Web/frontend/src/routes/home.route.test.tsx` asserts redirect start without backend `/api/auth/*` calls, callback success storage/redirect behavior, explicit callback error rendering, and logout returning the home route to anonymous UI.
+- Test evidence: `src/Tenax.Web/frontend/src/api/auth-config.test.ts` covers window-first precedence, Vite-env fallback, normalization, and defaults for runtime auth bootstrap.
+- Test evidence: `src/Tenax.Web/frontend/src/routes/home.route.test.tsx` asserts redirect start without backend `/api/auth/*` calls, callback success storage/redirect behavior, explicit callback error rendering, logout returning the home route to anonymous UI, and the approved missing-config error when bootstrap data is unavailable.
