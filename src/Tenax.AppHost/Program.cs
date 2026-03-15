@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Hosting;
 using Tenax.AppHost;
 
 AppHostEnvironmentDefaults.ApplyProcessDefaults();
 
 var builder = DistributedApplication.CreateBuilder(args);
+var isDevelopment = builder.Environment.IsDevelopment();
 
 var postgres = builder.AddPostgres("postgres");
 var tenaxDatabase = postgres.AddDatabase("Tenax", "tenax");
@@ -10,6 +12,22 @@ var tenaxDatabase = postgres.AddDatabase("Tenax", "tenax");
 var web = builder.AddProject<Projects.Tenax_Web>("tenax-web")
     .WithReference(tenaxDatabase)
     .WaitFor(tenaxDatabase);
+
+if (isDevelopment)
+{
+    var keycloakRealmImportPath = Path.Combine(builder.Environment.ContentRootPath, "keycloak", "import");
+
+    var keycloak = builder.AddKeycloak("keycloak", 8080)
+        .WithEnvironment("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
+        .WithEnvironment("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
+        .WithRealmImport(keycloakRealmImportPath);
+
+    web.WithReference(keycloak)
+        .WaitFor(keycloak)
+        .WithEnvironment("Authentication__JwtBearer__Authority", "http://localhost:8080/realms/tenax")
+        .WithEnvironment("Authentication__JwtBearer__Audience", "tenax-web-api")
+        .WithEnvironment("Authentication__JwtBearer__RequireHttpsMetadata", "false");
+}
 
 var skipFrontend = IsEnabled(Environment.GetEnvironmentVariable("TENAX_APPHOST_SKIP_FRONTEND"));
 
