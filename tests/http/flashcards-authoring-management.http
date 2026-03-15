@@ -1,9 +1,20 @@
-@baseUrl = http://localhost:5000
+@baseUrl = http://localhost:5062
 @deckId = deck_owned
 @missingDeckId = deck_missing
 @forbiddenDeckId = deck_forbidden
-@flashcardId = fc_replace_me
 @token = user_qa
+
+### Health - liveness (200)
+GET {{baseUrl}}/health
+
+?? status == 200
+?? duration < 5000
+
+### Health - readiness (200)
+GET {{baseUrl}}/health/ready
+
+?? status == 200
+?? duration < 5000
 
 ### Create flashcard - success (201)
 POST {{baseUrl}}/api/decks/{{deckId}}/flashcards
@@ -16,6 +27,22 @@ Content-Type: application/json
   "imageUrl": "https://cdn.tenax.dev/media/flashcards/fc_qa.png"
 }
 
+?? status == 201
+?? header content-type includes json
+?? header location includes /api/decks/{{deckId}}/flashcards/
+?? body id exists
+?? body deckId == {{deckId}}
+?? body term == hola
+?? body definition == hello
+?? body createdAtUtc exists
+?? body updatedAtUtc exists
+?? body createdByUserId exists
+?? body updatedByUserId exists
+
+{{
+  exports.flashcardId = response.parsedBody.id;
+}}
+
 ### Create flashcard - validation error (400)
 POST {{baseUrl}}/api/decks/{{deckId}}/flashcards
 Authorization: Bearer {{token}}
@@ -25,6 +52,13 @@ Content-Type: application/json
   "term": "",
   "definition": ""
 }
+
+?? status == 400
+?? header content-type includes json
+?? body code == validation_error
+?? body message == Request validation failed
+?? js response.parsedBody.errors.term.length >= 1
+?? js response.parsedBody.errors.definition.length >= 1
 
 ### Create flashcard - deck not found (404)
 POST {{baseUrl}}/api/decks/{{missingDeckId}}/flashcards
@@ -36,25 +70,63 @@ Content-Type: application/json
   "definition": "hi"
 }
 
+?? status == 404
+?? header content-type includes json
+?? body code == deck_not_found
+?? body message == Deck not found
+
 ### List flashcards - success (200)
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50
 Authorization: Bearer {{token}}
+
+?? status == 200
+?? header content-type includes json
+?? body items isArray
+?? body page == 1
+?? body pageSize == 50
+?? body totalCount >= 1
+?? js response.parsedBody.items.length >= 1
 
 ### List flashcards - invalid pagination (400)
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=0&pageSize=101
 Authorization: Bearer {{token}}
 
+?? status == 400
+?? header content-type includes json
+?? body code == validation_error
+?? body message == Request validation failed
+?? js response.parsedBody.errors.page.length >= 1
+?? js response.parsedBody.errors.pageSize.length >= 1
+
 ### List flashcards - forbidden (403)
 GET {{baseUrl}}/api/decks/{{forbiddenDeckId}}/flashcards?page=1&pageSize=50
 Authorization: Bearer {{token}}
+
+?? status == 403
+?? header content-type includes json
+?? body code == forbidden
 
 ### Get flashcard detail - success (200)
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
 Authorization: Bearer {{token}}
 
+?? status == 200
+?? header content-type includes json
+?? body id == {{flashcardId}}
+?? body deckId == {{deckId}}
+?? body term == hola
+?? body definition == hello
+?? body createdAtUtc exists
+?? body updatedAtUtc exists
+
 ### Get flashcard detail - missing flashcard (404)
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards/fc_missing
 Authorization: Bearer {{token}}
+
+?? status == 404
+?? header content-type includes json
+?? body code == not_found
+?? body message == Flashcard not found
 
 ### Update flashcard - success (200)
 PUT {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
@@ -67,6 +139,14 @@ Content-Type: application/json
   "imageUrl": null
 }
 
+?? status == 200
+?? header content-type includes json
+?? body id == {{flashcardId}}
+?? body deckId == {{deckId}}
+?? body term == hola
+?? body definition == hello informal
+?? body updatedAtUtc exists
+
 ### Update flashcard - validation error (400)
 PUT {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
 Authorization: Bearer {{token}}
@@ -77,6 +157,12 @@ Content-Type: application/json
   "definition": "",
   "imageUrl": null
 }
+
+?? status == 400
+?? header content-type includes json
+?? body code == validation_error
+?? body message == Request validation failed
+?? js response.parsedBody.errors.definition.length >= 1
 
 ### Update flashcard - concurrency conflict (409)
 # Requires a test profile or failure injection that maps update to concurrency_conflict.
@@ -90,18 +176,43 @@ Content-Type: application/json
   "imageUrl": null
 }
 
+?? status == 409
+?? header content-type includes json
+?? body code == concurrency_conflict
+
 ### List flashcards - persistence unavailable (503)
 # Requires a test profile or failure injection that maps list to persistence_unavailable.
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50
 Authorization: Bearer {{token}}
 
+?? status == 503
+?? header content-type includes json
+?? body code == persistence_unavailable
+
 ### Delete flashcard - success (200)
 DELETE {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
 Authorization: Bearer {{token}}
+
+?? status == 200
+?? header content-type includes json
+?? body deleted isTrue
+?? body id == {{flashcardId}}
+?? body deckId == {{deckId}}
+?? body deletedAtUtc exists
 
 ### Delete flashcard - not found (404)
 DELETE {{baseUrl}}/api/decks/{{deckId}}/flashcards/fc_missing
 Authorization: Bearer {{token}}
 
+?? status == 404
+?? header content-type includes json
+?? body code == not_found
+?? body message == Flashcard not found
+
 ### Unauthorized request sample (401)
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50
+X-Test-Auth: off
+
+?? status == 401
+?? header content-type includes json
+?? body code == unauthorized

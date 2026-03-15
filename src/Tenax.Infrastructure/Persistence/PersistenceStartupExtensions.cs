@@ -18,6 +18,14 @@ public static class PersistenceStartupExtensions
             return connectionString;
         }
 
+        // Supports raw key lookups when values are supplied through configuration providers
+        // that do not normalize environment variable separators automatically.
+        connectionString = configuration["ConnectionStrings__Tenax"];
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            return connectionString;
+        }
+
         throw new InvalidOperationException(
             $"PostgreSQL connection string is required. Configure '{ConnectionStringKey}' via appsettings, user-secrets, or environment variables.");
     }

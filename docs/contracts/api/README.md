@@ -14,6 +14,8 @@ This folder stores strict API response contracts used as implementation source o
 	- Epic scope: Aspire-based local orchestration for backend, frontend, and PostgreSQL.
 	- Contract posture: no runtime HTTP response schema changes are introduced by this epic.
 	- Compatibility rule: existing endpoint contracts remain authoritative unless superseded by ADR-backed contract updates.
+	- Implemented outcome: orchestration wiring added in App Host/ServiceDefaults and frontend Vite configuration without changing flashcard response schemas.
+	- Developer operations reference: `docs/ways-of-work/runbook/aspire-local-development-orchestration.md`.
 
 ## Flashcard Authoring Coverage (Implemented)
 

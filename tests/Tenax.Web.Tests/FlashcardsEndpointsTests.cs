@@ -20,6 +20,22 @@ public sealed class FlashcardsEndpointsTests : IClassFixture<CustomWebApplicatio
     }
 
     [Fact]
+    public async Task Health_ShouldReturn200()
+    {
+        var response = await _client.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task HealthReady_ShouldReturn200_WhenDependenciesAreAvailable()
+    {
+        var response = await _client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_ShouldReturn201_AndAuditableMetadata()
     {
         var payload = new

@@ -57,3 +57,19 @@
 - Shared contract milestones:
   - Treat docs/contracts/api/aspire-local-orchestration-no-api-response-changes-contract.yaml as source of truth for this epic's API compatibility posture.
   - Any future response-shape modification discovered during implementation requires a new endpoint contract update and ADR amendment before merge.
+
+## Implementation Outcomes (2026-03-15)
+- Added orchestration projects and wiring:
+  - `src/Tenax.AppHost` now orchestrates PostgreSQL, Tenax.Web, and frontend Vite dev host with dependency ordering.
+  - `src/Tenax.ServiceDefaults` now provides shared health endpoint mapping used by Tenax.Web.
+- Backend startup behavior:
+  - `src/Tenax.Web/Program.cs` applies pending EF Core migrations during startup.
+  - `src/Tenax.Web/Program.cs` maps `/health` and `/health/ready` via service defaults.
+- Frontend orchestration behavior:
+  - `src/Tenax.Web/frontend/vite.config.ts` supports `TENAX_FRONTEND_HOST`, `TENAX_FRONTEND_PORT`, and `TENAX_API_PROXY_TARGET`.
+- API contract compatibility outcome:
+  - Existing flashcard API response contracts remain unchanged.
+  - This remains aligned with `docs/contracts/api/aspire-local-orchestration-no-api-response-changes-contract.yaml`.
+
+## Developer Runbook
+- See `docs/ways-of-work/runbook/aspire-local-development-orchestration.md` for prerequisites, startup workflow, defaults, migration workflow, and troubleshooting.

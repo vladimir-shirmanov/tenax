@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Tenax.Application\Tenax.Application.csproj" />
     <ProjectReference Include="..\Tenax.Infrastructure\Tenax.Infrastructure.csproj" />
+    <ProjectReference Include="..\Tenax.ServiceDefaults\Tenax.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,10 +1,13 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Tenax.AppHost/Tenax.AppHost.csproj" />
     <Project Path="src/Tenax.Application/Tenax.Application.csproj" />
     <Project Path="src/Tenax.Domain/Tenax.Domain.csproj" />
     <Project Path="src/Tenax.Infrastructure/Tenax.Infrastructure.csproj" />
+    <Project Path="src/Tenax.ServiceDefaults/Tenax.ServiceDefaults.csproj" />
     <Project Path="src/Tenax.Web/Tenax.Web.csproj" />
     <Project Path="tests/Tenax.Application.Tests/Tenax.Application.Tests.csproj" />
+    <Project Path="tests/Tenax.AppHost.Tests/Tenax.AppHost.Tests.csproj" />
     <Project Path="tests/Tenax.Domain.Tests/Tenax.Domain.Tests.csproj" />
     <Project Path="tests/Tenax.Infrastructure.Tests/Tenax.Infrastructure.Tests.csproj" />
     <Project Path="tests/Tenax.Web.Tests/Tenax.Web.Tests.csproj" />

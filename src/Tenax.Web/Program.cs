@@ -4,12 +4,14 @@ using Microsoft.AspNetCore.Authorization;
 using Tenax.Application;
 using Tenax.Infrastructure;
 using Tenax.Infrastructure.Persistence;
+using Tenax.ServiceDefaults;
 using Tenax.Web.Authentication;
 using Tenax.Web.Errors;
 using Tenax.Web.Features.Flashcards;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddTenaxServiceDefaults();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAuthentication(BearerTokenAuthenticationHandler.SchemeName)
@@ -26,6 +28,8 @@ if (app.Environment.IsDevelopment())
 {
 	app.MapOpenApi();
 }
+
+app.MapTenaxDefaultEndpoints();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -27,7 +27,19 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         EnsurePostgresStartedAsync().GetAwaiter().GetResult();
-        return base.CreateHost(builder);
+
+        var connectionString = _postgresContainer.GetConnectionString();
+        var previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Tenax");
+        Environment.SetEnvironmentVariable("ConnectionStrings__Tenax", connectionString);
+
+        try
+        {
+            return base.CreateHost(builder);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ConnectionStrings__Tenax", previousConnectionString);
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

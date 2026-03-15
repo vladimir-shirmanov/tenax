@@ -21,6 +21,9 @@ public static class DependencyInjection
             });
         });
 
+        services.AddHealthChecks()
+            .AddDbContextCheck<TenaxDbContext>(tags: ["ready"]);
+
         services.AddScoped<IDeckRepository, EfDeckRepository>();
         services.AddScoped<IFlashcardRepository, EfFlashcardRepository>();
 
