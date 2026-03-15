@@ -1,0 +1,81 @@
+contract_version: 1
+feature: "aspire-local-development-orchestration"
+change_type: "no_api_response_contract_changes"
+endpoint:
+  method: "ANY"
+  path: "/api/*"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers: []
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["contractChange", "justification", "affectedContracts"]
+      properties:
+        contractChange:
+          type: string
+          enum: ["none"]
+        justification:
+          type: string
+        affectedContracts:
+          type: array
+          items:
+            type: string
+    example:
+      contractChange: "none"
+      justification: "Aspire local orchestration changes runtime composition only; existing endpoint response schemas remain authoritative."
+      affectedContracts:
+        - "flashcards-create-contract.yaml"
+        - "flashcards-list-contract.yaml"
+        - "flashcards-get-detail-contract.yaml"
+        - "flashcards-update-contract.yaml"
+        - "flashcards-delete-contract.yaml"
+
+  errors:
+    - status: 409
+      code: "contract_violation"
+      schema:
+        type: object
+        required: ["code", "message", "details"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details:
+            type: array
+            items: { type: string }
+      example:
+        code: "contract_violation"
+        message: "Detected response payload shape drift without contract update"
+        details:
+          - "Update the endpoint contract file before implementation merge"
+
+    - status: 503
+      code: "orchestration_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+      example:
+        code: "orchestration_unavailable"
+        message: "Local Aspire stack not fully ready; retry after dependencies become healthy"
+
+frontend_contract_notes:
+  query_key: "none"
+  cache_policy: "No changes to TanStack Query policies in this epic"
+  route_usage: "No frontend route response parsing changes required"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  no_change_guardrails:
+    - "Existing endpoint contracts remain the only source of truth for runtime response payloads"
+    - "If any HTTP response schema changes, update that endpoint contract and amend ADR 0003 before merge"
+    - "Do not repurpose orchestration wiring changes as implicit API contract changes"

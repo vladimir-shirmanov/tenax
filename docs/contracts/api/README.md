@@ -8,6 +8,13 @@ This folder stores strict API response contracts used as implementation source o
 - Backend and frontend implementations must follow these contracts.
 - Any breaking response change requires ADR update and orchestrator approval.
 
+## Aspire Local Orchestration Coverage (Contract-Only)
+
+- `aspire-local-orchestration-no-api-response-changes-contract.yaml`
+	- Epic scope: Aspire-based local orchestration for backend, frontend, and PostgreSQL.
+	- Contract posture: no runtime HTTP response schema changes are introduced by this epic.
+	- Compatibility rule: existing endpoint contracts remain authoritative unless superseded by ADR-backed contract updates.
+
 ## Flashcard Authoring Coverage (Implemented)
 
 The flashcard authoring and management epic is implemented against these contract files:
