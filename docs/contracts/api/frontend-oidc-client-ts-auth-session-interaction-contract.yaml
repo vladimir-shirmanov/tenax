@@ -1,4 +1,4 @@
-contract_version: 2
+contract_version: 3
 contract_type: "interaction"
 feature: "frontend-auth-session-oidc-client-ts"
 status: "active"
@@ -7,6 +7,7 @@ owners:
   - "Frontend Developer"
   - "Tech Writer"
 related_adr:
+  - "docs/adr/0010-dynamic-aspire-oidc-endpoint-alignment-and-callback-state-safety.md"
   - "docs/adr/0008-frontend-oidc-client-ts-auth-flow.md"
 related_contracts:
   - "docs/contracts/api/auth-jwt-bearer-discovery-validation-boundary-contract.yaml"
@@ -78,7 +79,7 @@ interaction_endpoints:
     method: "CLIENT_ACTION"
     path: "frontend://auth/callback/complete"
     owner: "Frontend Developer"
-    trigger: "The app loads on the configured redirect URI with code or error query parameters"
+    trigger: "The app loads on the configured redirect URI with sign-in callback query parameters"
     request:
       query_params:
         - name: "code"
@@ -87,6 +88,9 @@ interaction_endpoints:
           required: false
         - name: "state"
           required: false
+      preconditions:
+        - "Sign-in callback processing is attempted only when code and state are both present, or error is present."
+        - "The redirect URI origin used in callback processing must match the origin used when login_start stored oidc-client-ts transient state."
       headers: []
     responses:
       success:
@@ -144,11 +148,23 @@ interaction_endpoints:
           example:
             code: "oidc_callback_invalid"
             message: "Unable to complete sign in callback."
+        - status: 409
+          code: "oidc_callback_state_mismatch"
+          schema:
+            type: object
+            required: ["code", "message"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+          example:
+            code: "oidc_callback_state_mismatch"
+            message: "Sign in callback state is missing, expired, or does not match the active browser session."
     observable_signals:
-      - "useAuthSessionQuery calls signinRedirectCallback before reading the current user"
+      - "useAuthSessionQuery calls signinRedirectCallback only for valid sign-in callback signatures"
       - "tenax.auth.session.v1 is updated with accessToken, optional idToken, tokenType, scope, and expiresAtEpochSeconds"
       - "window.history.replaceState removes callback query parameters and restores the saved returnTo path"
       - "On failure, the homepage renders an error alert and the stored Tenax auth session is cleared"
+      - "If callback state is missing or mismatched, Tenax reports oidc_callback_state_mismatch and keeps the session anonymous"
 
   - name: "logout"
     method: "CLIENT_ACTION"
@@ -274,10 +290,13 @@ frontend_contract_notes:
   storage_notes:
     - "Tenax persists the active auth snapshot in sessionStorage under tenax.auth.session.v1"
     - "oidc-client-ts library state is also stored in sessionStorage, but the exact key names are implementation details"
+    - "Transient callback state can be lost if redirect URI origin changes between login_start and callback_handling"
   test_requirements:
     - "Regression test: clicking Sign in calls UserManager.signinRedirect and does not fetch backend /api/auth/* endpoints"
     - "Callback success test: code+state callback stores tenax.auth.session.v1 and restores returnTo"
     - "Callback failure test: callback exceptions surface an explicit sign-in callback error"
+    - "Callback mismatch test: callback with missing/expired oidc-client-ts state surfaces oidc_callback_state_mismatch and leaves auth session anonymous"
+    - "Dynamic-origin test: callback succeeds when AppHost runs frontend on non-default dynamic local port"
     - "Logout test: authenticated homepage returns to anonymous UI after signoutRedirect starts"
 
 compatibility_rules:
@@ -287,3 +306,4 @@ compatibility_rules:
     - "Backend does not expose login-start, callback, logout, or session transport endpoints for the SPA auth flow"
     - "OIDC code plus PKCE lifecycle is frontend-managed through oidc-client-ts UserManager"
     - "The homepage auth model is expressed as AuthSessionResponse: isAuthenticated, user, and menu"
+    - "Callback-state mismatch is treated as a first-class, contract-defined failure mode and must not be silently ignored"

@@ -17,6 +17,12 @@ This folder stores strict API response contracts used as implementation source o
 	- Implemented outcome: orchestration wiring added in App Host/ServiceDefaults and frontend Vite configuration without changing flashcard response schemas.
 	- Developer operations reference: `docs/ways-of-work/runbook/aspire-local-development-orchestration.md`.
 
+- `aspire-dynamic-oidc-integration-no-api-response-changes-contract.yaml`
+	- Epic scope: dynamic Aspire endpoint-safe frontend OIDC redirect alignment and callback-state safety.
+	- Contract posture: no backend HTTP response schema changes are introduced; changes are limited to runtime config and frontend callback interaction semantics.
+	- Compatibility rule: backend `/api/*` response payload contracts remain unchanged and authoritative.
+	- Related ADR: `docs/adr/0010-dynamic-aspire-oidc-endpoint-alignment-and-callback-state-safety.md`.
+
 ## Flashcard Authoring Coverage (Implemented)
 
 The flashcard authoring and management epic is implemented against these contract files:

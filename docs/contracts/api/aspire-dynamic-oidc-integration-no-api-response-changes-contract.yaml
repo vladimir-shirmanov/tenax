@@ -1,0 +1,79 @@
+contract_version: 1
+feature: "aspire-dynamic-oidc-integration"
+change_type: "no_api_response_contract_changes"
+endpoint:
+  method: "ANY"
+  path: "/api/*"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers: []
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["contractChange", "justification", "affectedContracts"]
+      properties:
+        contractChange:
+          type: string
+          enum: ["none"]
+        justification:
+          type: string
+        affectedContracts:
+          type: array
+          items:
+            type: string
+    example:
+      contractChange: "none"
+      justification: "Dynamic Aspire endpoint alignment and frontend callback-state safety change runtime configuration and browser interaction semantics only; backend HTTP response shapes remain unchanged."
+      affectedContracts:
+        - "auth-jwt-bearer-discovery-validation-boundary-contract.yaml"
+        - "frontend-runtime-auth-config-bootstrap-contract.yaml"
+        - "frontend-oidc-client-ts-auth-session-interaction-contract.yaml"
+
+  errors:
+    - status: 409
+      code: "contract_violation"
+      schema:
+        type: object
+        required: ["code", "message", "details"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details:
+            type: array
+            items: { type: string }
+      example:
+        code: "contract_violation"
+        message: "Detected API response shape drift without contract update"
+        details:
+          - "Update endpoint contract files before merging any response payload changes"
+
+    - status: 503
+      code: "orchestration_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+      example:
+        code: "orchestration_unavailable"
+        message: "Local Aspire stack is not ready; retry after dependencies become healthy"
+
+frontend_contract_notes:
+  query_key: "['auth', 'clientSession']"
+  cache_policy: "No backend response parsing changes; frontend changes are limited to runtime config and callback state handling."
+  route_usage: "Homepage auth flow and callback handling route behavior only"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  no_change_guardrails:
+    - "No HTTP response shape change is allowed without updating the endpoint-specific contract"
+    - "Do not introduce backend /api/auth/* auth-flow transport endpoints in this scope"
+    - "Dynamic endpoint wiring must not become an implicit API behavior change"

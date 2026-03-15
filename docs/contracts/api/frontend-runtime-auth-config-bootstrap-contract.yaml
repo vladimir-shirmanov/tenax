@@ -1,4 +1,4 @@
-contract_version: 1
+contract_version: 2
 contract_type: "runtime-config"
 feature: "frontend-runtime-auth-config-bootstrap"
 status: "active"
@@ -7,6 +7,7 @@ owners:
   - "Backend Developer"
   - "Frontend Developer"
 related_adr:
+  - "docs/adr/0010-dynamic-aspire-oidc-endpoint-alignment-and-callback-state-safety.md"
   - "docs/adr/0009-frontend-runtime-auth-config-bootstrap.md"
   - "docs/adr/0008-frontend-oidc-client-ts-auth-flow.md"
   - "docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md"
@@ -51,8 +52,10 @@ interaction_endpoints:
           required_keys:
             - "VITE_TENAX_AUTH_AUTHORITY"
             - "VITE_TENAX_AUTH_CLIENT_ID"
-            - "VITE_TENAX_AUTH_REDIRECT_URI"
+          conditional_required_keys:
+            - "Either VITE_TENAX_AUTH_REDIRECT_URI or VITE_TENAX_AUTH_FRONTEND_ORIGIN must be available."
           optional_keys:
+            - "VITE_TENAX_AUTH_FRONTEND_ORIGIN"
             - "VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI"
             - "VITE_TENAX_AUTH_AUDIENCE"
             - "VITE_TENAX_AUTH_DEFAULT_DECK_ID"
@@ -61,6 +64,7 @@ interaction_endpoints:
         - "No network request is issued to obtain SPA auth runtime config."
         - "No /api/auth/* endpoint participates in config delivery."
         - "Only frontend-safe public values may be projected through this contract."
+        - "Effective redirectUri and postLogoutRedirectUri must resolve to the frontend origin used for login in AppHost local runs."
     responses:
       success:
         status: 200
@@ -93,8 +97,8 @@ interaction_endpoints:
         example:
           authority: "http://localhost:8080/realms/tenax"
           clientId: "tenax-spa"
-          redirectUri: "http://127.0.0.1:5173/"
-          postLogoutRedirectUri: "http://127.0.0.1:5173/"
+          redirectUri: "http://127.0.0.1:19073/"
+          postLogoutRedirectUri: "http://127.0.0.1:19073/"
           audience: "tenax-web-api"
           defaultDeckId: "default"
           scope: "openid profile email"
@@ -115,7 +119,8 @@ interaction_endpoints:
             message: "Missing OIDC authority, client id, or redirect URI."
             details:
               - "window.TENAX_AUTH_CONFIG did not contain authority, clientId, and redirectUri"
-              - "VITE_TENAX_AUTH_AUTHORITY, VITE_TENAX_AUTH_CLIENT_ID, and VITE_TENAX_AUTH_REDIRECT_URI were not all available"
+              - "VITE_TENAX_AUTH_AUTHORITY and VITE_TENAX_AUTH_CLIENT_ID were required"
+              - "Either VITE_TENAX_AUTH_REDIRECT_URI or VITE_TENAX_AUTH_FRONTEND_ORIGIN was required"
         - status: 409
           code: "runtime_config_contract_violation"
           schema:
@@ -138,6 +143,7 @@ interaction_endpoints:
       - "authority is normalized without a trailing slash"
       - "postLogoutRedirectUri defaults to redirectUri when omitted"
       - "defaultDeckId defaults to default when omitted"
+      - "When VITE_TENAX_AUTH_FRONTEND_ORIGIN is present and explicit redirect URI values are absent, redirectUri resolves to <frontend-origin>/"
       - "Missing required config continues to surface as oidc_configuration_invalid when login or callback handling requires auth config"
 
 validation_rules:
@@ -158,6 +164,11 @@ validation_rules:
     postLogoutRedirectUri: "redirectUri"
     defaultDeckId: "default"
     scope: "openid profile email"
+  derived_fields:
+    redirectUri:
+      rule: "Use VITE_TENAX_AUTH_REDIRECT_URI when non-empty; otherwise derive as <VITE_TENAX_AUTH_FRONTEND_ORIGIN>/"
+    postLogoutRedirectUri:
+      rule: "Use VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI when non-empty; otherwise use redirectUri"
 
 delivery_channels:
   apphost_vite_dev:
@@ -166,23 +177,26 @@ delivery_channels:
     defaults:
       authority: "http://localhost:8080/realms/tenax"
       clientId: "tenax-spa"
-      redirectUri: "http://127.0.0.1:5173/"
-      postLogoutRedirectUri: "http://127.0.0.1:5173/"
+      frontendOrigin: "Runtime Aspire frontend endpoint origin"
+      redirectUri: "Derived from frontendOrigin when explicit redirect URI is not set"
+      postLogoutRedirectUri: "Derived from redirectUri when explicit post logout URI is not set"
       audience: "tenax-web-api"
       defaultDeckId: "default"
       scope: "openid profile email"
     required_env:
       - "VITE_TENAX_AUTH_AUTHORITY"
       - "VITE_TENAX_AUTH_CLIENT_ID"
-      - "VITE_TENAX_AUTH_REDIRECT_URI"
+      - "VITE_TENAX_AUTH_FRONTEND_ORIGIN or VITE_TENAX_AUTH_REDIRECT_URI"
     optional_env:
+      - "VITE_TENAX_AUTH_FRONTEND_ORIGIN"
+      - "VITE_TENAX_AUTH_REDIRECT_URI"
       - "VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI"
       - "VITE_TENAX_AUTH_AUDIENCE"
       - "VITE_TENAX_AUTH_DEFAULT_DECK_ID"
       - "VITE_TENAX_AUTH_SCOPE"
     local_client_alignment:
       - "The development realm import must include a public tenax-spa client compatible with Authorization Code + PKCE."
-      - "The imported client must allow both http://127.0.0.1:5173 and http://localhost:5173 as local redirect/web origins so the AppHost default and manual local overrides both work."
+      - "The imported client must allow loopback redirect and web origin patterns compatible with dynamic local ports used by Aspire."
   future_hosted_frontend:
     owner: "Frontend Developer"
     mechanism: "Host-provided pre-bootstrap assignment to window.TENAX_AUTH_CONFIG"
@@ -205,3 +219,4 @@ compatibility_rules:
     - "Backend API surface remains unchanged; no /api/auth/* runtime config endpoint is introduced."
     - "window.TENAX_AUTH_CONFIG stays the sole Tenax-owned browser contract consumed by auth.ts."
     - "All values delivered through this contract are public SPA configuration, never secrets."
+    - "Runtime redirectUri used for signinRedirect and signinRedirectCallback must stay origin-consistent within the same browser session."
