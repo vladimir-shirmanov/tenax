@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Authorization;
 using Tenax.Application;
@@ -14,8 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTenaxServiceDefaults();
 builder.Services.AddApplication();
 builder.AddInfrastructure();
-builder.Services.AddAuthentication(BearerTokenAuthenticationHandler.SchemeName)
-	.AddScheme<AuthenticationSchemeOptions, BearerTokenAuthenticationHandler>(BearerTokenAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddJwtBearerAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationEnvelopeResultHandler>();
 builder.Services.AddOpenApi();
