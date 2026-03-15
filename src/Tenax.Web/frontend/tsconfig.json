@@ -9,6 +9,6 @@
     "skipLibCheck": true,
     "types": ["jest", "node"]
   },
-  "include": ["src", "jest.config.ts", "vite.config.ts"],
+  "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

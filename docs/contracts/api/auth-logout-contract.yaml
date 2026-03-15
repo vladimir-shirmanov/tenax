@@ -1,58 +1,60 @@
-contract_version: 1
+contract_version: 2
 feature: "homepage-auth-session"
+contract_status: "superseded"
+superseded_by:
+  - "docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md"
 endpoint:
   method: "POST"
   path: "/api/auth/logout"
-  owner: "Backend Developer"
+  owner: "Architecture"
 
 request:
   path_params: []
   query_params: []
-  headers:
-    - name: "Cookie"
-      type: "string"
-      required: false
-      notes: "Session cookie when present."
+  headers: []
 
 responses:
   success:
-    status: 200
+    status: 404
     behavioral_guarantees:
-      - "Endpoint is idempotent; returns 200 whether or not an authenticated session existed."
-      - "Local application session cookie is cleared when present."
+      - "This endpoint is out of scope and MUST NOT be implemented by backend in current scope."
+      - "Frontend OIDC client owns logout orchestration with identity provider."
     schema:
       type: object
-      required: ["loggedOut", "postLogoutRedirectUrl"]
+      required: ["code", "message"]
       properties:
-        loggedOut: { type: boolean }
-        postLogoutRedirectUrl: { type: ["string", "null"], format: uri }
+        code: { type: string }
+        message: { type: string }
     example:
-      loggedOut: true
-      postLogoutRedirectUrl: "https://idp.example.com/realms/tenax/protocol/openid-connect/logout?post_logout_redirect_uri=https%3A%2F%2Flocalhost%3A5173%2F"
+      code: "not_found"
+      message: "Endpoint not found"
 
   errors:
-    - status: 503
-      code: "logout_unavailable"
+    - status: 409
+      code: "contract_violation"
       schema:
         type: object
-        required: ["code", "message"]
+        required: ["code", "message", "details"]
         properties:
           code: { type: string }
           message: { type: string }
-          traceId: { type: string }
+          details:
+            type: array
+            items: { type: string }
       example:
-        code: "logout_unavailable"
-        message: "Logout service is temporarily unavailable"
-        traceId: "00-8ab7f4d1d03e44ca8f6f0d13dc362173-fa729ea52abf73c6-01"
+        code: "contract_violation"
+        message: "Attempted implementation of superseded backend logout endpoint"
+        details:
+          - "Use frontend OIDC logout behavior and token/session clearing"
 
 frontend_contract_notes:
-  query_key: "auth.session"
-  cache_policy: "On success, set `auth.session` to anonymous state optimistically and invalidate once. If `postLogoutRedirectUrl` is non-null, perform browser redirect."
-  route_usage: "top-level navigation logout action and homepage authenticated variant"
+  query_key: "none"
+  cache_policy: "Frontend handles logout lifecycle and clears auth state before navigating to public routes."
+  route_usage: "Homepage and global navigation logout action"
 
 compatibility_rules:
   additive_only: true
   breaking_change_process: "requires ADR update"
-  additive_requirements:
-    - "`loggedOut` must remain required boolean in v1."
-    - "Clients must tolerate null `postLogoutRedirectUrl` for local-only logout mode."
+  supersession_rules:
+    - "Any reintroduction of this endpoint requires a new ADR and a new endpoint contract"
+

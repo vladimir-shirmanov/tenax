@@ -1,0 +1,117 @@
+contract_version: 1
+feature: "homepage-auth-jwt-bearer-boundary"
+change_type: "no_new_auth_endpoints_jwt_resource_server_scope"
+endpoint:
+  method: "ANY"
+  path: "/api/*"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <jwt>"
+      notes: "Required on protected resource endpoints that already exist in endpoint-specific contracts."
+
+responses:
+  success:
+    status: 200
+    behavioral_guarantees:
+      - "No backend auth-flow transport endpoints are introduced in this scope."
+      - "Backend acts only as resource server and validates bearer JWT using OIDC/OAuth2 discovery metadata from configured authority."
+      - "Existing protected resource contracts remain authoritative for endpoint-specific success payload schemas."
+    schema:
+      type: object
+      required: ["contractChange", "authorityValidation", "audienceValidation", "authEndpointsInScope", "protectedResourceContracts"]
+      properties:
+        contractChange:
+          type: string
+          enum: ["none"]
+        authorityValidation:
+          type: string
+          enum: ["required"]
+        audienceValidation:
+          type: string
+          enum: ["required"]
+        authEndpointsInScope:
+          type: array
+          items: { type: string }
+        protectedResourceContracts:
+          type: array
+          items: { type: string }
+    example:
+      contractChange: "none"
+      authorityValidation: "required"
+      audienceValidation: "required"
+      authEndpointsInScope: []
+      protectedResourceContracts:
+        - "flashcards-create-contract.yaml"
+        - "flashcards-list-contract.yaml"
+        - "flashcards-get-detail-contract.yaml"
+        - "flashcards-update-contract.yaml"
+        - "flashcards-delete-contract.yaml"
+
+  errors:
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-a31c62906ec84db488ba061d8f9194f7-b71ecdfd56a9bb77-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to access this resource"
+        traceId: "00-bf949fdf337c4116a86390d39d90917a-59f96da2deea28d4-01"
+
+    - status: 409
+      code: "contract_violation"
+      schema:
+        type: object
+        required: ["code", "message", "details"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details:
+            type: array
+            items: { type: string }
+      example:
+        code: "contract_violation"
+        message: "Detected introduction of backend OIDC flow endpoint outside approved scope"
+        details:
+          - "Do not implement /api/auth/oidc/login/start"
+          - "Do not implement /api/auth/oidc/callback"
+          - "Do not implement /api/auth/logout"
+          - "Do not implement /api/auth/session"
+
+frontend_contract_notes:
+  query_key: "auth.clientSession (frontend-managed)"
+  cache_policy: "Homepage menu visibility derives from frontend OIDC client session/token state and protected API outcomes."
+  route_usage: "Homepage auth-gated menu for decks and flashcards"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  no_change_guardrails:
+    - "Protected API success payloads remain defined by endpoint-specific contracts"
+    - "401/403 semantics must stay aligned across protected resource contracts"
+    - "Any future backend auth-flow endpoints require a new ADR and dedicated endpoint contracts before implementation"

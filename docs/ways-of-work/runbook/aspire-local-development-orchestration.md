@@ -5,6 +5,10 @@
 This runbook documents the implemented local orchestration workflow for the Aspire epic.
 Use it as the default developer path for running Tenax backend, frontend, and PostgreSQL together.
 
+Related runbook:
+
+- `docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md` for authentication boundary operations aligned to ADR 0006.
+
 ## Scope and Contract Posture
 
 - Scope: local runtime composition only (App Host + Web + frontend + PostgreSQL).

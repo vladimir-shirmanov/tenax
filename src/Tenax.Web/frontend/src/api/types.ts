@@ -48,3 +48,24 @@ export type FlashcardDeleteResponse = {
   deckId: string;
   deletedAtUtc: string;
 };
+
+export type AuthSessionUser = {
+  subject: string;
+  displayName: string;
+  email: string | null;
+};
+
+export type AuthMenuLink = {
+  key: string;
+  label: string;
+  href: string;
+};
+
+export type AuthSessionResponse = {
+  isAuthenticated: boolean;
+  user: AuthSessionUser | null;
+  menu: {
+    visible: boolean;
+    links: AuthMenuLink[];
+  };
+};

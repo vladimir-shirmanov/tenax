@@ -1,0 +1,187 @@
+{
+  "info": {
+    "name": "Tenax Auth JWT Boundary",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "QA coverage for ADR 0006 backend JWT resource-server boundary and superseded endpoint absence."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5062" },
+    { "key": "ownedDeckId", "value": "deck_owned" },
+    { "key": "invalidToken", "value": "invalid.jwt.token" }
+  ],
+  "item": [
+    {
+      "name": "Protected endpoint - missing bearer token returns 401",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/decks/{{ownedDeckId}}/flashcards?page=1&pageSize=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "decks", "{{ownedDeckId}}", "flashcards"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "pageSize", "value": "10" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 401', function () { pm.response.to.have.status(401); });",
+              "pm.test('content-type is json', function () { pm.expect(pm.response.headers.get('content-type')).to.include('json'); });",
+              "pm.test('error code is unauthorized', function () { pm.expect(pm.response.json().code).to.eql('unauthorized'); });",
+              "pm.test('error message is Authentication is required', function () { pm.expect(pm.response.json().message).to.eql('Authentication is required'); });",
+              "pm.test('traceId exists', function () { pm.expect(pm.response.json().traceId).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Protected endpoint - invalid bearer token returns 401",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{invalidToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/decks/{{ownedDeckId}}/flashcards?page=1&pageSize=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "decks", "{{ownedDeckId}}", "flashcards"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "pageSize", "value": "10" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 401', function () { pm.response.to.have.status(401); });",
+              "pm.test('content-type is json', function () { pm.expect(pm.response.headers.get('content-type')).to.include('json'); });",
+              "pm.test('error code is unauthorized', function () { pm.expect(pm.response.json().code).to.eql('unauthorized'); });",
+              "pm.test('error message is Authentication is required', function () { pm.expect(pm.response.json().message).to.eql('Authentication is required'); });",
+              "pm.test('traceId exists', function () { pm.expect(pm.response.json().traceId).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Superseded endpoint absent - GET /api/auth/session returns 404",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/session",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "session"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 404', function () { pm.response.to.have.status(404); });",
+              "pm.test('content-type is json', function () { pm.expect(pm.response.headers.get('content-type')).to.include('json'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Superseded endpoint absent - POST /api/auth/oidc/login/start returns 404",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"returnTo\": \"/\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/oidc/login/start",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "oidc", "login", "start"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 404', function () { pm.response.to.have.status(404); });",
+              "pm.test('content-type is json', function () { pm.expect(pm.response.headers.get('content-type')).to.include('json'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Superseded endpoint absent - GET /api/auth/oidc/callback returns 404",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/oidc/callback?code=dummy&state=dummy",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "oidc", "callback"],
+          "query": [
+            { "key": "code", "value": "dummy" },
+            { "key": "state", "value": "dummy" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 404', function () { pm.response.to.have.status(404); });",
+              "pm.test('content-type is json', function () { pm.expect(pm.response.headers.get('content-type')).to.include('json'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Superseded endpoint absent - POST /api/auth/logout returns 404",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "logout"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 404', function () { pm.response.to.have.status(404); });",
+              "pm.test('content-type is json', function () { pm.expect(pm.response.headers.get('content-type')).to.include('json'); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

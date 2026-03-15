@@ -1,0 +1,41 @@
+stage: docs
+scope:
+  summary: "Document implemented ADR 0006 boundary: backend JWT bearer validation only, frontend-managed OIDC PKCE homepage/session behavior, and API client unauthorized handling."
+  out_of_scope:
+    - "Implementing or changing runtime backend/frontend code"
+    - "Reintroducing backend /api/auth/session, /api/auth/oidc/*, or /api/auth/logout endpoints"
+    - "Running build or test commands in this docs stage"
+acceptance_criteria:
+  - "Documentation states backend is a JWT resource server using OIDC authority metadata discovery and audience validation."
+  - "Documentation states backend auth-flow transport endpoints are out of scope under ADR 0006."
+  - "Documentation states homepage menu links are auth-gated by frontend-managed OIDC client session/token state."
+  - "Documentation states frontend API client adds bearer token and clears local auth session on 401/403."
+  - "Runbook coverage exists for maintainers to operate within the ADR 0006 boundary."
+files_changed:
+  - "docs/contracts/api/README.md"
+  - "docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md"
+  - "docs/ways-of-work/runbook/aspire-local-development-orchestration.md"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-15-adr-0006-docs-handoff.yaml"
+test_evidence:
+  targeted:
+    - command: "docs-only review"
+      outcome: "Completed documentation updates against ADR 0006 and existing contracts; no executable tests run in docs stage."
+  full_suite:
+    - command: "not run (docs-only stage)"
+      outcome: "Allowed by handoff request; rely on implementation-stage/QA-stage evidence for executable verification."
+behavioral_impact:
+  api_changes:
+    - "No API schema or endpoint behavior changes introduced by this docs handoff."
+    - "Docs reinforce that backend /api/auth/session, /api/auth/oidc/*, and /api/auth/logout endpoints are out of scope in current delivery."
+  data_changes:
+    - "None"
+  config_changes:
+    - "No runtime config changes in this handoff."
+    - "Docs clarify expected backend settings: Authentication:JwtBearer:Authority, Authentication:JwtBearer:Audience, Authentication:JwtBearer:RequireHttpsMetadata."
+risks:
+  - "If future contributors skip ADR/contract checks, superseded backend auth endpoints could be reintroduced."
+  - "Frontend auth/session behavior is client-side; browser/sessionStorage constraints and IdP logout nuances remain operational considerations."
+next_agent_expectations:
+  - "qa: validate runtime behavior against documented boundary, especially 401/403 handling and absence of backend auth-flow endpoints."
+  - "release-notes: summarize ADR 0006 boundary implementation and call out superseded backend auth contracts/endpoints."
+issue_tasks: []

@@ -1,5 +1,6 @@
 import { ApiError } from "./errors";
 import { ApiErrorEnvelope } from "./types";
+import { clearAuthSession, readActiveAccessToken } from "./auth-storage";
 
 declare global {
   interface Window {
@@ -30,18 +31,29 @@ export const requestJson = async <T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> => {
+  const headers = new Headers(init.headers ?? {});
+  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const accessToken = readActiveAccessToken();
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers ?? {})
-    }
+    headers,
   });
 
   const text = await response.text();
   const payload = text.length > 0 ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      clearAuthSession();
+    }
+
     throw new ApiError(response.status, toErrorEnvelope(payload));
   }
 

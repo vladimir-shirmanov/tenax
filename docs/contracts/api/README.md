@@ -37,31 +37,39 @@ The flashcard authoring and management epic is implemented against these contrac
 	- API endpoint: `DELETE /api/decks/{deckId}/flashcards/{flashcardId}`
 	- Frontend route usage: `routes/decks.$deckId.flashcards.$flashcardId.tsx` (delete confirmation flow)
 
-## Homepage + OIDC Auth Session Coverage (Planned Contract-First)
+## Homepage Auth Coverage (Revised Boundary)
 
-The homepage/auth epic is defined contract-first for parallel backend/frontend delivery:
+The homepage/auth epic is now aligned to frontend-owned OIDC PKCE and backend JWT resource-server behavior:
 
+- `auth-jwt-bearer-discovery-validation-boundary-contract.yaml`
+	- API endpoint family: `ANY /api/*`
+	- Purpose: define that backend validates bearer JWTs via authority discovery + audience checks and does not introduce backend OIDC flow endpoints in current scope.
+	- Implemented behavior: protected API requests include bearer tokens from frontend local auth session storage; frontend clears local auth session when protected API calls return `401` or `403`.
 - `auth-session-contract.yaml`
-	- API endpoint: `GET /api/auth/session`
-	- Purpose: single source of truth for anonymous vs authenticated UI state and menu visibility.
+	- Contract status: superseded and out of scope in current delivery.
 - `auth-oidc-login-start-contract.yaml`
-	- API endpoint: `POST /api/auth/oidc/login/start`
-	- Purpose: initiate OAuth 2.0 Authorization Code + PKCE and return provider authorization URL.
+	- Contract status: superseded and out of scope in current delivery.
 - `auth-oidc-callback-contract.yaml`
-	- API endpoint: `GET /api/auth/oidc/callback`
-	- Purpose: process authorization-code callback and establish backend session before redirecting to app route.
+	- Contract status: superseded and out of scope in current delivery.
 - `auth-logout-contract.yaml`
-	- API endpoint: `POST /api/auth/logout`
-	- Purpose: clear local session and provide optional provider logout redirect URL.
+	- Contract status: superseded and out of scope in current delivery.
 
-Related ADR:
+Related ADRs:
 
-- `docs/adr/0005-oidc-pkce-homepage-auth-session-contract-first.md`
+- `docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md` (accepted)
+- `docs/adr/0005-oidc-pkce-homepage-auth-session-contract-first.md` (superseded)
+
+Operational reference:
+
+- `docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md`
+	- Maintainer runbook for backend JWT authority/audience configuration and frontend homepage/auth client behavior under ADR 0006.
 
 ### Contract-First Alignment Notes
 
-- Backend and frontend tracks were delivered in parallel using ADR 0001 and these contracts as the shared source of truth.
-- TanStack Query cache behavior in frontend implementation follows the `frontend_contract_notes` policies in each contract file.
+- Backend and frontend tracks continue parallel delivery using ADR-backed contract files as source of truth.
+- Auth scope now explicitly forbids backend login/callback/logout/session endpoints unless a future ADR reintroduces them with new contracts.
+- Homepage route exposes decks/flashcards navigation only when frontend-managed auth session is authenticated.
+- TanStack Query and route behavior must follow the `frontend_contract_notes` policies defined in active contracts.
 
 ### Persistence Error Behavior Highlights (Implemented)
 
@@ -76,8 +84,8 @@ Related ADR:
 
 ### Test Evidence (High-Level)
 
-- Backend handoff reports successful build and passing backend automated tests for flashcard CRUD.
-- Frontend handoff reports successful build and passing frontend automated tests for flashcard list/create/detail/edit/delete flows.
+- See stage handoff payloads for authoritative test command outcomes.
+- For ADR 0006 documentation updates, this directory records contract and behavior documentation only.
 
 ### Test Strategy and Prerequisites (Current)
 

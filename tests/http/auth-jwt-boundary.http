@@ -1,0 +1,54 @@
+@baseUrl = http://localhost:5062
+@ownedDeckId = deck_owned
+@invalidToken = invalid.jwt.token
+
+### Protected endpoint - missing bearer token returns 401 envelope
+GET {{baseUrl}}/api/decks/{{ownedDeckId}}/flashcards?page=1&pageSize=10
+
+?? status == 401
+?? header content-type includes json
+?? body code == unauthorized
+?? body message == Authentication is required
+?? body traceId exists
+
+### Protected endpoint - invalid bearer token returns 401 envelope
+GET {{baseUrl}}/api/decks/{{ownedDeckId}}/flashcards?page=1&pageSize=10
+Authorization: Bearer {{invalidToken}}
+
+?? status == 401
+?? header content-type includes json
+?? body code == unauthorized
+?? body message == Authentication is required
+?? body traceId exists
+
+### Superseded endpoint absent - GET /api/auth/session returns 404
+GET {{baseUrl}}/api/auth/session
+
+?? status == 404
+?? header content-type includes json
+
+### Superseded endpoint absent - POST /api/auth/oidc/login/start returns 404
+POST {{baseUrl}}/api/auth/oidc/login/start
+Content-Type: application/json
+
+{
+  "returnTo": "/"
+}
+
+?? status == 404
+?? header content-type includes json
+
+### Superseded endpoint absent - GET /api/auth/oidc/callback returns 404
+GET {{baseUrl}}/api/auth/oidc/callback?code=dummy&state=dummy
+
+?? status == 404
+?? header content-type includes json
+
+### Superseded endpoint absent - POST /api/auth/logout returns 404
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+
+{}
+
+?? status == 404
+?? header content-type includes json

@@ -1,8 +1,10 @@
 # ADR 0005: OIDC PKCE Homepage Authentication Session and Navigation Gating
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-03-15
 - Owners: Architecture
+- Superseded By:
+  - docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md
 - Related Contracts:
   - docs/contracts/api/auth-session-contract.yaml
   - docs/contracts/api/auth-oidc-login-start-contract.yaml
@@ -10,6 +12,7 @@
   - docs/contracts/api/auth-logout-contract.yaml
 
 ## Context
+- Historical decision record retained for traceability.
 - Tenax frontend currently has no homepage route and no standards-based authentication integration path for gating navigation.
 - Existing backend authentication is a temporary bearer-token handler intended for development-only behavior.
 - Delivery must be contract-first so backend and frontend can implement in parallel without endpoint drift.
