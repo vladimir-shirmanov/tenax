@@ -57,7 +57,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<DbContextOptions<TenaxDbContext>>();
-            services.AddDbContext<TenaxDbContext>(options =>
+            services.AddDbContextPool<TenaxDbContext>(options =>
             {
                 options.UseNpgsql(_postgresContainer.GetConnectionString(), npgsqlOptions =>
                 {
