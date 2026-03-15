@@ -129,6 +129,9 @@ public sealed class FlashcardServiceTests
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
         _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _flashcardRepository
+            .UpdateAsync(Arg.Any<Flashcard>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(true);
 
         var result = await service.UpdateAsync(new UpdateFlashcardInput("deck_owned", "fc_12345678", "hola", "hello updated", null, "usr_42"), CancellationToken.None);
 
@@ -158,6 +161,9 @@ public sealed class FlashcardServiceTests
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
         _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _flashcardRepository
+            .DeleteAsync("deck_owned", "fc_12345678", flashcard.UpdatedAtUtc, Arg.Any<CancellationToken>())
+            .Returns(true);
 
         var result = await service.DeleteAsync(new DeleteFlashcardInput("deck_owned", "fc_12345678", "usr_42"), CancellationToken.None);
 
@@ -166,7 +172,57 @@ public sealed class FlashcardServiceTests
         Assert.True(result.Value.Deleted);
         Assert.Equal("fc_12345678", result.Value.Id);
 
-        await _flashcardRepository.Received(1).DeleteAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>());
+        await _flashcardRepository.Received(1).DeleteAsync("deck_owned", "fc_12345678", flashcard.UpdatedAtUtc, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnConcurrencyConflict_WhenRepositoryUpdateFails()
+    {
+        var service = CreateService();
+        var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
+
+        _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _flashcardRepository
+            .UpdateAsync(Arg.Any<Flashcard>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var result = await service.UpdateAsync(new UpdateFlashcardInput("deck_owned", "fc_12345678", "hola", "hello updated", null, "usr_42"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(FlashcardErrorCodes.ConcurrencyConflict, result.Failure?.Code);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnConcurrencyConflict_WhenRepositoryDeleteFails()
+    {
+        var service = CreateService();
+        var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
+
+        _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _flashcardRepository
+            .DeleteAsync("deck_owned", "fc_12345678", flashcard.UpdatedAtUtc, Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        var result = await service.DeleteAsync(new DeleteFlashcardInput("deck_owned", "fc_12345678", "usr_42"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(FlashcardErrorCodes.ConcurrencyConflict, result.Failure?.Code);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnPersistenceUnavailable_WhenDeckRepositoryFails()
+    {
+        var service = CreateService();
+        _deckRepository
+            .GetByIdAsync("deck_owned", Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Deck?>(new PersistenceUnavailableException("db down")));
+
+        var result = await service.CreateAsync(new CreateFlashcardInput("deck_owned", "hola", "hello", null, "usr_42"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(FlashcardErrorCodes.PersistenceUnavailable, result.Failure?.Code);
     }
 
     private static Flashcard CreateFlashcard(string deckId, string flashcardId, string term, string definition)
