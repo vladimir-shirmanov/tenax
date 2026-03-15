@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Tenax.Application.Abstractions.Persistence;
 using Tenax.Infrastructure.Persistence;
 using Tenax.Infrastructure.Persistence.Repositories;
@@ -9,24 +8,13 @@ namespace Tenax.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IHostApplicationBuilder AddInfrastructure(this IHostApplicationBuilder builder)
     {
-        var connectionString = PersistenceStartupExtensions.ResolveConnectionString(configuration);
+        builder.AddNpgsqlDbContext<TenaxDbContext>("Tenax");
 
-        services.AddDbContext<TenaxDbContext>(options =>
-        {
-            options.UseNpgsql(connectionString, npgsqlOptions =>
-            {
-                npgsqlOptions.MigrationsAssembly(typeof(TenaxDbContext).Assembly.GetName().Name);
-            });
-        });
+        builder.Services.AddScoped<IDeckRepository, EfDeckRepository>();
+        builder.Services.AddScoped<IFlashcardRepository, EfFlashcardRepository>();
 
-        services.AddHealthChecks()
-            .AddDbContextCheck<TenaxDbContext>(tags: ["ready"]);
-
-        services.AddScoped<IDeckRepository, EfDeckRepository>();
-        services.AddScoped<IFlashcardRepository, EfFlashcardRepository>();
-
-        return services;
+        return builder;
     }
 }

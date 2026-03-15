@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Tenax.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
@@ -23,49 +22,6 @@ public sealed class PersistenceStartupExtensionsTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _postgresContainer.DisposeAsync();
-    }
-
-    [Fact]
-    public void ResolveConnectionString_ShouldReturnConfiguredConnectionString_WhenStandardConnectionStringsSectionExists()
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:Tenax"] = "Host=localhost;Port=5432;Database=tenax;Username=postgres"
-            })
-            .Build();
-
-        var connectionString = PersistenceStartupExtensions.ResolveConnectionString(configuration);
-
-        Assert.Equal("Host=localhost;Port=5432;Database=tenax;Username=postgres", connectionString);
-    }
-
-    [Fact]
-    public void ResolveConnectionString_ShouldReturnConfiguredConnectionString_WhenAspireStyleConnectionStringKeyExists()
-    {
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings__Tenax"] = "Host=aspire-postgres;Port=5432;Database=tenax;Username=postgres"
-            })
-            .Build();
-
-        var connectionString = PersistenceStartupExtensions.ResolveConnectionString(configuration);
-
-        Assert.Equal("Host=aspire-postgres;Port=5432;Database=tenax;Username=postgres", connectionString);
-    }
-
-    [Fact]
-    public void ResolveConnectionString_ShouldThrow_WhenNoConnectionStringIsConfigured()
-    {
-        var configuration = new ConfigurationBuilder().Build();
-
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-        {
-            _ = PersistenceStartupExtensions.ResolveConnectionString(configuration);
-        });
-
-        Assert.Contains(PersistenceStartupExtensions.ConnectionStringKey, exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

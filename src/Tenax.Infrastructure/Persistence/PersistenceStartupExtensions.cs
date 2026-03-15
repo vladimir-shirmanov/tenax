@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -8,28 +7,6 @@ namespace Tenax.Infrastructure.Persistence;
 
 public static class PersistenceStartupExtensions
 {
-    public const string ConnectionStringKey = "ConnectionStrings:Tenax";
-
-    public static string ResolveConnectionString(IConfiguration configuration)
-    {
-        var connectionString = configuration.GetConnectionString("Tenax");
-        if (!string.IsNullOrWhiteSpace(connectionString))
-        {
-            return connectionString;
-        }
-
-        // Supports raw key lookups when values are supplied through configuration providers
-        // that do not normalize environment variable separators automatically.
-        connectionString = configuration["ConnectionStrings__Tenax"];
-        if (!string.IsNullOrWhiteSpace(connectionString))
-        {
-            return connectionString;
-        }
-
-        throw new InvalidOperationException(
-            $"PostgreSQL connection string is required. Configure '{ConnectionStringKey}' via appsettings, user-secrets, or environment variables.");
-    }
-
     public static async Task ApplyMigrationsAsync(this IServiceProvider services, string environmentName, CancellationToken cancellationToken = default)
     {
         await using var scope = services.CreateAsyncScope();
