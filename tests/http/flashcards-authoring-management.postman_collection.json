@@ -1,0 +1,373 @@
+{
+  "info": {
+    "name": "Tenax Flashcards Authoring and Management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Contract-focused CRUD verification for flashcard authoring and management."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "user_qa" },
+    { "key": "deckId", "value": "deck_owned" },
+    { "key": "missingDeckId", "value": "deck_missing" },
+    { "key": "forbiddenDeckId", "value": "deck_forbidden" },
+    { "key": "flashcardId", "value": "fc_replace_me" }
+  ],
+  "item": [
+    {
+      "name": "Create",
+      "item": [
+        {
+          "name": "Create flashcard - 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"hola\",\n  \"definition\": \"hello\",\n  \"imageUrl\": \"https://cdn.tenax.dev/media/flashcards/fc_postman.png\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('flashcardId', json.id);",
+                  "pm.test('response contains auditable fields', function () {",
+                  "  pm.expect(json).to.have.property('createdAtUtc');",
+                  "  pm.expect(json).to.have.property('updatedAtUtc');",
+                  "  pm.expect(json).to.have.property('createdByUserId');",
+                  "  pm.expect(json).to.have.property('updatedByUserId');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create validation error - 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"\",\n  \"definition\": \"\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('code is validation_error', function () { pm.expect(pm.response.json().code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "List",
+      "item": [
+        {
+          "name": "List flashcards - 200",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "50" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('response has pagination shape', function () {",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('items');",
+                  "  pm.expect(json).to.have.property('page');",
+                  "  pm.expect(json).to.have.property('pageSize');",
+                  "  pm.expect(json).to.have.property('totalCount');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List invalid pagination - 400",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards?page=0&pageSize=101",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "pageSize", "value": "101" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('code is validation_error', function () { pm.expect(pm.response.json().code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Detail and Update",
+      "item": [
+        {
+          "name": "Get detail - 200",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards", "{{flashcardId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update flashcard - 200",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards", "{{flashcardId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"hola\",\n  \"definition\": \"hello informal\",\n  \"imageUrl\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('definition updated', function () { pm.expect(pm.response.json().definition).to.eql('hello informal'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update validation error - 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards", "{{flashcardId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"hola\",\n  \"definition\": \"\",\n  \"imageUrl\": null\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('code is validation_error', function () { pm.expect(pm.response.json().code).to.eql('validation_error'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Delete and Auth",
+      "item": [
+        {
+          "name": "Delete flashcard - 200",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards", "{{flashcardId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('deleted is true', function () { pm.expect(pm.response.json().deleted).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing auth - 401",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{deckId}}", "flashcards"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "50" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('code is unauthorized', function () { pm.expect(pm.response.json().code).to.eql('unauthorized'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forbidden deck - 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{forbiddenDeckId}}/flashcards?page=1&pageSize=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{forbiddenDeckId}}", "flashcards"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "50" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('code is forbidden', function () { pm.expect(pm.response.json().code).to.eql('forbidden'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Missing deck on create - 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{missingDeckId}}/flashcards",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{missingDeckId}}", "flashcards"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"term\": \"ciao\",\n  \"definition\": \"hi\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('code is deck_not_found', function () { pm.expect(pm.response.json().code).to.eql('deck_not_found'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

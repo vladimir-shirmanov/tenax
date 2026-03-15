@@ -1,0 +1,90 @@
+@baseUrl = http://localhost:5000
+@deckId = deck_owned
+@missingDeckId = deck_missing
+@forbiddenDeckId = deck_forbidden
+@flashcardId = fc_replace_me
+@token = user_qa
+
+### Create flashcard - success (201)
+POST {{baseUrl}}/api/decks/{{deckId}}/flashcards
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "term": "hola",
+  "definition": "hello",
+  "imageUrl": "https://cdn.tenax.dev/media/flashcards/fc_qa.png"
+}
+
+### Create flashcard - validation error (400)
+POST {{baseUrl}}/api/decks/{{deckId}}/flashcards
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "term": "",
+  "definition": ""
+}
+
+### Create flashcard - deck not found (404)
+POST {{baseUrl}}/api/decks/{{missingDeckId}}/flashcards
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "term": "ciao",
+  "definition": "hi"
+}
+
+### List flashcards - success (200)
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50
+Authorization: Bearer {{token}}
+
+### List flashcards - invalid pagination (400)
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=0&pageSize=101
+Authorization: Bearer {{token}}
+
+### List flashcards - forbidden (403)
+GET {{baseUrl}}/api/decks/{{forbiddenDeckId}}/flashcards?page=1&pageSize=50
+Authorization: Bearer {{token}}
+
+### Get flashcard detail - success (200)
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
+Authorization: Bearer {{token}}
+
+### Get flashcard detail - missing flashcard (404)
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards/fc_missing
+Authorization: Bearer {{token}}
+
+### Update flashcard - success (200)
+PUT {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "term": "hola",
+  "definition": "hello informal",
+  "imageUrl": null
+}
+
+### Update flashcard - validation error (400)
+PUT {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "term": "hola",
+  "definition": "",
+  "imageUrl": null
+}
+
+### Delete flashcard - success (200)
+DELETE {{baseUrl}}/api/decks/{{deckId}}/flashcards/{{flashcardId}}
+Authorization: Bearer {{token}}
+
+### Delete flashcard - not found (404)
+DELETE {{baseUrl}}/api/decks/{{deckId}}/flashcards/fc_missing
+Authorization: Bearer {{token}}
+
+### Unauthorized request sample (401)
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50

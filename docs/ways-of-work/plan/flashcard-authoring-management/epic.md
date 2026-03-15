@@ -2,6 +2,17 @@
 
 Flashcard Authoring and Management (Term, Definition, Optional Image)
 
+## Delivery Status (2026-03-15)
+
+- Status: Implemented across architecture, backend, and frontend tracks.
+- Contract alignment: Implemented against ADR 0001 and the five flashcard API contracts under `docs/contracts/api/`.
+- Backend coverage: Flashcard CRUD endpoints and automated backend tests are complete per backend handoff (build succeeded, tests passed).
+- Frontend coverage: Deck-scoped list/create/detail/edit/delete-confirm routes are complete under `src/Tenax.Web/frontend` with TanStack Query cache policies aligned to contract notes; frontend build/tests passed per handoff.
+- Remaining follow-ups:
+  - Add HTTP autotests focused on endpoint-level contract verification (especially non-happy-path coverage).
+  - Finalize durable persistence planning for production-grade storage strategy.
+  - Complete manual visual QA browser matrix for frontend UX verification.
+
 # 2. Goal
 
 ## Problem

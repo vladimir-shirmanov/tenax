@@ -1,6 +1,6 @@
 # ADR 0001: Flashcard CRUD Contract-First API and Ownership Boundaries
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-03-15
 - Owners: Architecture
 - Related Contracts:
@@ -69,3 +69,14 @@
 - Shared contract milestones:
   - Contract approval before coding starts.
   - Integration verification against contract examples before merge.
+
+## Implementation Outcome (2026-03-15)
+- Backend implementation delivered all five deck-scoped flashcard CRUD endpoints with matching contract route shapes and expected status-code families.
+- Frontend implementation delivered list/create/detail/edit/delete-confirm user flows mapped to contract-defined route usage and cache invalidation behavior.
+- High-level evidence from handoffs:
+  - Backend: build succeeded and backend automated tests passed.
+  - Frontend: build succeeded and frontend automated tests passed.
+- Known remaining work:
+  - Add dedicated HTTP autotests that assert contract fidelity across success and error paths.
+  - Confirm durable persistence approach for production environments.
+  - Run manual cross-browser visual QA matrix for frontend behavior and accessibility presentation.

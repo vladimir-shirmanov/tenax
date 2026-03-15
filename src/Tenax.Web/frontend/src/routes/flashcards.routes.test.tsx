@@ -1,0 +1,274 @@
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { FlashcardListRoute } from "./decks.$deckId.flashcards.index";
+import { FlashcardCreateRoute } from "./decks.$deckId.flashcards.new";
+import { FlashcardDetailRoute } from "./decks.$deckId.flashcards.$flashcardId";
+import { FlashcardEditRoute } from "./decks.$deckId.flashcards.$flashcardId.edit";
+import { renderRoute } from "../test/test-utils";
+
+const jsonResponse = (status: number, body: unknown) =>
+  Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => JSON.stringify(body),
+  } as Response);
+
+describe("flashcard routes", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("renders flashcard list success state", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+        return jsonResponse(200, {
+          items: [
+            {
+              id: "fc_1",
+              deckId: "deck_123",
+              term: "hola",
+              definitionPreview: "hello",
+              hasImage: false,
+              updatedAtUtc: "2026-03-15T12:00:00Z",
+              updatedByUserId: "usr_1",
+            },
+          ],
+          page: 1,
+          pageSize: 50,
+          totalCount: 1,
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards",
+      <FlashcardListRoute />,
+      "/decks/deck_123/flashcards"
+    );
+
+    expect(screen.getByText(/loading flashcards/i)).toBeInTheDocument();
+    expect(await screen.findByText("hola")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /new flashcard/i })).toBeInTheDocument();
+  });
+
+  it("renders flashcard list empty state", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+        return jsonResponse(200, {
+          items: [],
+          page: 1,
+          pageSize: 50,
+          totalCount: 0,
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards",
+      <FlashcardListRoute />,
+      "/decks/deck_123/flashcards"
+    );
+
+    expect(await screen.findByText(/no flashcards found for this deck yet/i)).toBeInTheDocument();
+  });
+
+  it("renders flashcard list error state", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+        return jsonResponse(500, {
+          code: "server_error",
+          message: "Something failed",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards",
+      <FlashcardListRoute />,
+      "/decks/deck_123/flashcards"
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole("alert")).toHaveTextContent(/something failed/i);
+      },
+      { timeout: 5000 }
+    );
+  });
+
+  it("shows contract validation errors on create", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123/flashcards") && init?.method === "POST") {
+        return jsonResponse(400, {
+          code: "validation_error",
+          message: "Request validation failed",
+          errors: {
+            term: ["term must be at least 1 character"],
+            definition: ["definition must be at least 1 character"],
+          },
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/new",
+      <FlashcardCreateRoute />,
+      "/decks/deck_123/flashcards/new"
+    );
+
+    await userEvent.type(screen.getByLabelText(/term or phrase/i), "hola");
+    await userEvent.type(screen.getByLabelText(/definition/i), "hello");
+    await userEvent.click(screen.getByRole("button", { name: /create flashcard/i }));
+
+    expect(await screen.findByText(/request validation failed/i)).toBeInTheDocument();
+    expect(screen.getByText(/term must be at least 1 character/i)).toBeInTheDocument();
+    expect(screen.getByText(/definition must be at least 1 character/i)).toBeInTheDocument();
+  });
+
+  it("deletes a flashcard from detail route with confirmation", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && !init?.method) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && init?.method === "DELETE") {
+        return jsonResponse(200, {
+          deleted: true,
+          id: "fc_1",
+          deckId: "deck_123",
+          deletedAtUtc: "2026-03-15T12:20:00Z",
+        });
+      }
+
+      if (url.endsWith("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+        return jsonResponse(200, { items: [], page: 1, pageSize: 50, totalCount: 0 });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    expect(await screen.findByText("hola")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    expect(screen.getByRole("dialog", { name: /confirm delete flashcard/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/decks/deck_123/flashcards/fc_1"),
+        expect.objectContaining({ method: "DELETE" })
+      );
+    });
+  });
+
+  it("renders flashcard detail error state", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1")) {
+        return jsonResponse(404, {
+          code: "not_found",
+          message: "Flashcard not found",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole("alert")).toHaveTextContent(/flashcard not found/i);
+      },
+      { timeout: 5000 }
+    );
+  });
+
+  it("updates a flashcard via edit route", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && !init?.method) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && init?.method === "PUT") {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello informal",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:10:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId/edit",
+      <FlashcardEditRoute />,
+      "/decks/deck_123/flashcards/fc_1/edit"
+    );
+
+    const definitionInput = await screen.findByLabelText(/definition/i);
+    await userEvent.clear(definitionInput);
+    await userEvent.type(definitionInput, "hello informal");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/decks/deck_123/flashcards/fc_1"),
+        expect.objectContaining({ method: "PUT" })
+      );
+    });
+  });
+});

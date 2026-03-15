@@ -1,0 +1,50 @@
+export type ValidationErrors = Record<string, string[]>;
+
+export type ApiErrorEnvelope = {
+  code: string;
+  message: string;
+  traceId?: string;
+  errors?: ValidationErrors;
+};
+
+export type FlashcardListItem = {
+  id: string;
+  deckId: string;
+  term: string;
+  definitionPreview: string;
+  hasImage: boolean;
+  updatedAtUtc: string;
+  updatedByUserId: string | null;
+};
+
+export type FlashcardListResponse = {
+  items: FlashcardListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type FlashcardDetail = {
+  id: string;
+  deckId: string;
+  term: string;
+  definition: string;
+  imageUrl: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  createdByUserId: string | null;
+  updatedByUserId: string | null;
+};
+
+export type FlashcardWriteRequest = {
+  term: string;
+  definition: string;
+  imageUrl: string | null;
+};
+
+export type FlashcardDeleteResponse = {
+  deleted: boolean;
+  id: string;
+  deckId: string;
+  deletedAtUtc: string;
+};
