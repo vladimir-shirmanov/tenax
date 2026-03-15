@@ -2,26 +2,45 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomeRoute } from "./home";
 import { renderRoute } from "../test/test-utils";
-import { persistAuthSession } from "../api/auth-storage";
 
-const jsonResponse = (status: number, body: unknown) =>
-  Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-    text: async () => JSON.stringify(body),
-  } as Response);
+const mockGetUser = jest.fn();
+const mockSigninRedirect = jest.fn();
+const mockSigninRedirectCallback = jest.fn();
+const mockSignoutRedirect = jest.fn();
+const mockSignoutRedirectCallback = jest.fn();
+
+jest.mock("oidc-client-ts", () => {
+  class WebStorageStateStore {
+    constructor(_options?: unknown) {}
+  }
+
+  return {
+    UserManager: jest.fn().mockImplementation(() => ({
+      getUser: mockGetUser,
+      signinRedirect: mockSigninRedirect,
+      signinRedirectCallback: mockSigninRedirectCallback,
+      signoutRedirect: mockSignoutRedirect,
+      signoutRedirectCallback: mockSignoutRedirectCallback,
+    })),
+    WebStorageStateStore,
+  };
+});
 
 describe("home route auth behavior", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.clearAllMocks();
     sessionStorage.clear();
     window.history.replaceState({}, "", "/");
     window.TENAX_AUTH_CONFIG = undefined;
-    window.TENAX_LAST_REDIRECT_URL = undefined;
+    mockGetUser.mockResolvedValue(null);
+    mockSigninRedirect.mockResolvedValue(undefined);
+    mockSigninRedirectCallback.mockResolvedValue(null);
+    mockSignoutRedirect.mockResolvedValue(undefined);
+    mockSignoutRedirectCallback.mockResolvedValue(undefined);
   });
 
-  it("renders anonymous homepage variant and starts frontend PKCE login redirect", async () => {
+  it("renders anonymous homepage variant and starts oidc-client-ts redirect", async () => {
     window.TENAX_AUTH_CONFIG = {
       authority: "https://idp.example.com/realms/tenax",
       clientId: "tenax-web",
@@ -30,26 +49,7 @@ describe("home route auth behavior", () => {
       defaultDeckId: "default",
     };
 
-    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
-      const url = String(input);
-
-      if (
-        url ===
-          "https://idp.example.com/realms/tenax/.well-known/openid-configuration" &&
-        (!init?.method || init.method === "GET")
-      ) {
-        return jsonResponse(200, {
-          authorization_endpoint:
-            "https://idp.example.com/realms/tenax/protocol/openid-connect/auth",
-          token_endpoint:
-            "https://idp.example.com/realms/tenax/protocol/openid-connect/token",
-          end_session_endpoint:
-            "https://idp.example.com/realms/tenax/protocol/openid-connect/logout",
-        });
-      }
-
-      return jsonResponse(404, { code: "not_found", message: "not found" });
-    });
+    const fetchMock = jest.spyOn(global, "fetch");
 
     renderRoute("/", <HomeRoute />, "/");
 
@@ -60,25 +60,10 @@ describe("home route auth behavior", () => {
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://idp.example.com/realms/tenax/.well-known/openid-configuration",
-        expect.objectContaining({ method: "GET" })
-      );
-      const pendingTxRaw = sessionStorage.getItem("tenax.auth.pkce.transaction.v1");
-      expect(pendingTxRaw).toBeTruthy();
-      expect(decodeURIComponent(window.TENAX_LAST_REDIRECT_URL ?? "")).toContain(
-        "https://idp.example.com/realms/tenax/protocol/openid-connect/auth"
-      );
-      expect(decodeURIComponent(window.TENAX_LAST_REDIRECT_URL ?? "")).toContain(
-        "response_type=code"
-      );
-      const redirectUrl = decodeURIComponent(window.TENAX_LAST_REDIRECT_URL ?? "");
-      expect(
-        redirectUrl.includes("code_challenge_method=S256") ||
-          redirectUrl.includes("code_challenge_method=plain")
-      ).toBe(true);
-      expect(decodeURIComponent(window.TENAX_LAST_REDIRECT_URL ?? "")).toContain(
-        "client_id=tenax-web"
+      expect(mockSigninRedirect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          state: expect.objectContaining({ returnTo: "/" }),
+        })
       );
     });
 
@@ -86,13 +71,94 @@ describe("home route auth behavior", () => {
     expect(calledUrls.some((url) => url.includes("/api/auth/"))).toBe(false);
   });
 
-  it("renders authenticated menu and logs out to anonymous state", async () => {
-    const farFuture = Math.floor(Date.now() / 1000) + 3600;
-    persistAuthSession({
-      accessToken:
-        "header.eyJzdWIiOiJ1c3JfMSIsIm5hbWUiOiJWbGFkYSBJIiwiZW1haWwiOiJ2bGFkYUBleGFtcGxlLmNvbSIsImV4cCI6OTk5OTk5OTk5OX0.signature",
-      expiresAtEpochSeconds: farFuture,
+  it("completes callback and restores return URL", async () => {
+    window.TENAX_AUTH_CONFIG = {
+      authority: "https://idp.example.com/realms/tenax",
+      clientId: "tenax-web",
+      redirectUri: "http://localhost/",
+      postLogoutRedirectUri: "http://localhost/",
+      defaultDeckId: "default",
+    };
+
+    const authenticatedUser = {
+      access_token: "access-token",
+      id_token: "id-token",
+      token_type: "Bearer",
+      scope: "openid profile email",
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      expired: false,
+      profile: {
+        sub: "usr_1",
+        name: "Vlada I",
+        email: "vlada@example.com",
+      },
+      state: {
+        returnTo: "/decks",
+      },
+    };
+
+    mockSigninRedirectCallback.mockResolvedValue(authenticatedUser);
+    mockGetUser.mockResolvedValue(authenticatedUser);
+    window.history.replaceState({}, "", "/?code=test-code&state=test-state");
+
+    renderRoute("/", <HomeRoute />, "/");
+
+    expect(await screen.findByText(/signed in as vlada i/i)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockSigninRedirectCallback).toHaveBeenCalledTimes(1);
+      expect(window.location.pathname).toBe("/decks");
     });
+
+    const storedSessionRaw = sessionStorage.getItem("tenax.auth.session.v1");
+    expect(storedSessionRaw).toBeTruthy();
+    expect(storedSessionRaw).toContain("access-token");
+  });
+
+  it("renders explicit callback error when callback processing fails", async () => {
+    window.TENAX_AUTH_CONFIG = {
+      authority: "https://idp.example.com/realms/tenax",
+      clientId: "tenax-web",
+      redirectUri: "http://localhost/",
+      postLogoutRedirectUri: "http://localhost/",
+      defaultDeckId: "default",
+    };
+
+    mockSigninRedirectCallback.mockRejectedValue(new Error("state mismatch"));
+    mockGetUser.mockResolvedValue(null);
+    window.history.replaceState({}, "", "/?code=test-code&state=test-state");
+
+    renderRoute("/", <HomeRoute />, "/");
+
+    expect(
+      await screen.findByText(/unable to complete sign in callback\./i)
+    ).toBeInTheDocument();
+  });
+
+  it("renders authenticated menu and logs out to anonymous state", async () => {
+    window.TENAX_AUTH_CONFIG = {
+      authority: "https://idp.example.com/realms/tenax",
+      clientId: "tenax-web",
+      redirectUri: "http://localhost/",
+      postLogoutRedirectUri: "http://localhost/",
+      defaultDeckId: "default",
+    };
+
+    mockGetUser
+      .mockResolvedValueOnce({
+        access_token: "access-token",
+        id_token: "id-token",
+        token_type: "Bearer",
+        scope: "openid profile email",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        expired: false,
+        profile: {
+          sub: "usr_1",
+          name: "Vlada I",
+          email: "vlada@example.com",
+        },
+      })
+      .mockResolvedValueOnce(null);
 
     renderRoute("/", <HomeRoute />, "/");
 
@@ -106,6 +172,10 @@ describe("home route auth behavior", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+    await waitFor(() => {
+      expect(mockSignoutRedirect).toHaveBeenCalledTimes(1);
+    });
 
     expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: /learning menu/i })).not.toBeInTheDocument();

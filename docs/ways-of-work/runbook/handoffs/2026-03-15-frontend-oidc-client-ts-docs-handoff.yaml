@@ -1,0 +1,42 @@
+stage: docs
+scope:
+  summary: "Align frontend auth documentation with the implemented oidc-client-ts UserManager flow for login, callback, logout, and session reads."
+  out_of_scope:
+    - "Changing runtime frontend or backend code"
+    - "Reintroducing backend /api/auth/session, /api/auth/oidc/*, or /api/auth/logout endpoints"
+    - "Running build or test commands in the docs stage"
+acceptance_criteria:
+  - "Documentation states the frontend auth flow is implemented with oidc-client-ts UserManager."
+  - "Documentation matches current auth.ts behavior for login start, callback processing, logout, and session query semantics."
+  - "Documentation reflects route-test evidence for redirect start, callback success/failure, and logout back to anonymous UI."
+  - "Runbook guidance no longer references the removed custom PKCE transaction key."
+files_changed:
+  - "docs/adr/0008-frontend-oidc-client-ts-auth-flow.md"
+  - "docs/contracts/api/frontend-oidc-client-ts-auth-session-interaction-contract.yaml"
+  - "docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-15-frontend-oidc-client-ts-docs-handoff.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-15-frontend-oidc-client-ts-issue-tasks.yaml"
+test_evidence:
+  targeted:
+    - command: "docs-only source review of src/Tenax.Web/frontend/src/api/auth.ts, src/Tenax.Web/frontend/package.json, and src/Tenax.Web/frontend/src/routes/home.route.test.tsx"
+      outcome: "Completed; docs updated to match implemented oidc-client-ts behavior and current route-test assertions."
+  full_suite:
+    - command: "not run (docs-only stage)"
+      outcome: "No executable validation run by the documentation agent. Existing implementation-stage test evidence remains the source of runtime verification."
+behavioral_impact:
+  api_changes:
+    - "No API schema or endpoint behavior changed in this docs handoff."
+    - "Docs clarify that frontend auth interactions are browser-managed and no backend /api/auth/* transport endpoints participate in login, callback, logout, or session reads."
+  data_changes:
+    - "No database or persistence changes."
+    - "Docs clarify browser sessionStorage usage: tenax.auth.session.v1 is Tenax-owned, while oidc-client-ts transient keys are library-managed."
+  config_changes:
+    - "No runtime config changes in this handoff."
+    - "Docs clarify the required frontend config inputs: authority, clientId, redirectUri, and optional postLogoutRedirectUri, scope, audience, defaultDeckId."
+risks:
+  - "This docs stage did not run executable validation; correctness depends on the reviewed implementation and route-test files remaining authoritative."
+  - "oidc-client-ts internal storage key names may vary by library version, so only Tenax-owned storage keys should be treated as stable documentation surface."
+next_agent_expectations:
+  - "qa: validate the implemented browser auth flow against the updated interaction contract, especially callback error handling and absence of backend /api/auth/* calls."
+  - "release: summarize the frontend auth migration to oidc-client-ts and note that backend auth-flow endpoints remain out of scope."
+issue_tasks: []

@@ -3,7 +3,7 @@
 ## Purpose
 
 This runbook documents the implemented authentication boundary from ADR 0006.
-Use it to maintain backend JWT resource-server behavior and frontend OIDC PKCE client behavior without reintroducing superseded backend auth-flow endpoints.
+Use it to maintain backend JWT resource-server behavior and frontend `oidc-client-ts` browser auth behavior without reintroducing superseded backend auth-flow endpoints.
 
 ## Boundary Summary
 
@@ -12,7 +12,7 @@ Use it to maintain backend JWT resource-server behavior and frontend OIDC PKCE c
   - Enforce audience and standard token validation on protected APIs.
   - Return contract-aligned `401` and `403` error envelopes for unauthorized/forbidden access.
 - Frontend scope:
-  - Own OIDC Authorization Code + PKCE login and logout flow in browser.
+  - Own OIDC Authorization Code + PKCE login and logout flow in browser via `oidc-client-ts` `UserManager`.
   - Derive homepage authenticated state from frontend-managed token/session state.
   - Show homepage learning menu links (decks, flashcards) only when authenticated.
   - Attach bearer access token to protected API calls.
@@ -47,8 +47,19 @@ Operational expectation:
 Frontend auth session behavior is local-session based and client-managed:
 
 - Access token storage key: `tenax.auth.session.v1`
-- PKCE transaction storage key: `tenax.auth.pkce.transaction.v1`
-- Query cache key: `auth.clientSession`
+- `oidc-client-ts` transient state uses browser `sessionStorage` through `WebStorageStateStore`; do not rely on hard-coded library key names in docs or app logic.
+- React Query auth session key: `['auth', 'clientSession']`
+- Login behavior:
+  - Homepage sign-in calls `UserManager.signinRedirect()` with `state.returnTo` set to the current route.
+  - No backend `/api/auth/*` request is part of login start.
+- Callback behavior:
+  - `useAuthSessionQuery` detects callback query parameters and executes `signinRedirectCallback()` before reading the current user.
+  - Successful callback handling persists the active token snapshot to `tenax.auth.session.v1` and replaces the browser URL with the saved `returnTo` path.
+  - Callback failures surface `oidc_callback_invalid` through the homepage error state.
+- Logout behavior:
+  - `tenax.auth.session.v1` is cleared before `UserManager.signoutRedirect()` starts.
+  - The logout mutation applies an optimistic anonymous session locally, then invalidates the auth session query.
+  - If sign-out redirect start fails, the browser falls back to `window.location.assign(postLogoutRedirectUri)` when possible.
 - API client behavior:
   - Adds `Authorization: Bearer <token>` when an active access token is available.
   - Clears local auth session storage on `401` and `403` responses.
@@ -63,7 +74,9 @@ Homepage behavior expectations:
 ## Contract and ADR References
 
 - `docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md`
+- `docs/adr/0008-frontend-oidc-client-ts-auth-flow.md`
 - `docs/contracts/api/auth-jwt-bearer-discovery-validation-boundary-contract.yaml`
+- `docs/contracts/api/frontend-oidc-client-ts-auth-session-interaction-contract.yaml`
 - `docs/contracts/api/auth-session-contract.yaml` (superseded)
 - `docs/contracts/api/auth-oidc-login-start-contract.yaml` (superseded)
 - `docs/contracts/api/auth-oidc-callback-contract.yaml` (superseded)

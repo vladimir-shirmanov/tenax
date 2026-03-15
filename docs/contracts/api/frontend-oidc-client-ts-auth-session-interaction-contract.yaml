@@ -1,0 +1,289 @@
+contract_version: 2
+contract_type: "interaction"
+feature: "frontend-auth-session-oidc-client-ts"
+status: "active"
+owners:
+  - "Architecture"
+  - "Frontend Developer"
+  - "Tech Writer"
+related_adr:
+  - "docs/adr/0008-frontend-oidc-client-ts-auth-flow.md"
+related_contracts:
+  - "docs/contracts/api/auth-jwt-bearer-discovery-validation-boundary-contract.yaml"
+
+scope:
+  in_scope:
+    - "SPA login initiation via oidc-client-ts UserManager redirect flow"
+    - "OIDC callback processing inside the frontend auth session query"
+    - "SPA logout initiation and completion"
+    - "Frontend session state semantics for homepage and API-client gating"
+  out_of_scope:
+    - "Backend implementation of /api/auth/* session transport endpoints"
+    - "Identity provider realm/client provisioning details"
+    - "Silent renew or background refresh flows not present in the current implementation"
+
+interaction_endpoints:
+  - name: "login_start"
+    method: "CLIENT_ACTION"
+    path: "frontend://auth/login/start"
+    owner: "Frontend Developer"
+    trigger: "User clicks the Sign in button on the homepage"
+    request:
+      preconditions:
+        - "window.TENAX_AUTH_CONFIG includes authority, clientId, and redirectUri"
+      input_schema:
+        type: object
+        required: ["returnTo"]
+        properties:
+          returnTo:
+            type: string
+            description: "App-relative path to restore after successful sign-in callback"
+            example: "/"
+    responses:
+      success:
+        status: 302
+        schema:
+          type: "null"
+        example: null
+      errors:
+        - status: 500
+          code: "oidc_configuration_invalid"
+          schema:
+            type: object
+            required: ["code", "message"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+          example:
+            code: "oidc_configuration_invalid"
+            message: "Missing OIDC authority, client id, or redirect URI."
+        - status: 500
+          code: "oidc_redirect_start_failed"
+          schema:
+            type: object
+            required: ["code", "message"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+          example:
+            code: "oidc_redirect_start_failed"
+            message: "Unable to start sign in. Please try again."
+    observable_signals:
+      - "UserManager.signinRedirect is invoked with state.returnTo"
+      - "Browser begins top-level navigation to the identity provider"
+      - "No backend /api/auth/* request is sent from auth.ts"
+      - "oidc-client-ts transient state is stored in sessionStorage through WebStorageStateStore"
+
+  - name: "callback_handling"
+    method: "CLIENT_ACTION"
+    path: "frontend://auth/callback/complete"
+    owner: "Frontend Developer"
+    trigger: "The app loads on the configured redirect URI with code or error query parameters"
+    request:
+      query_params:
+        - name: "code"
+          required: false
+        - name: "error"
+          required: false
+        - name: "state"
+          required: false
+      headers: []
+    responses:
+      success:
+        status: 200
+        schema:
+          type: object
+          required: ["isAuthenticated", "user", "menu"]
+          properties:
+            isAuthenticated: { type: boolean, enum: [true] }
+            user:
+              type: object
+              required: ["subject", "displayName", "email"]
+              properties:
+                subject: { type: string }
+                displayName: { type: string }
+                email: { type: ["string", "null"] }
+            menu:
+              type: object
+              required: ["visible", "links"]
+              properties:
+                visible: { type: boolean, enum: [true] }
+                links:
+                  type: array
+                  items:
+                    type: object
+                    required: ["key", "label", "href"]
+                    properties:
+                      key: { type: string }
+                      label: { type: string }
+                      href: { type: string }
+        example:
+          isAuthenticated: true
+          user:
+            subject: "usr_1"
+            displayName: "Vlada I"
+            email: "vlada@example.com"
+          menu:
+            visible: true
+            links:
+              - key: "decks"
+                label: "Decks"
+                href: "/decks"
+              - key: "flashcards"
+                label: "Flashcards"
+                href: "/decks/default/flashcards"
+      errors:
+        - status: 400
+          code: "oidc_callback_invalid"
+          schema:
+            type: object
+            required: ["code", "message"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+          example:
+            code: "oidc_callback_invalid"
+            message: "Unable to complete sign in callback."
+    observable_signals:
+      - "useAuthSessionQuery calls signinRedirectCallback before reading the current user"
+      - "tenax.auth.session.v1 is updated with accessToken, optional idToken, tokenType, scope, and expiresAtEpochSeconds"
+      - "window.history.replaceState removes callback query parameters and restores the saved returnTo path"
+      - "On failure, the homepage renders an error alert and the stored Tenax auth session is cleared"
+
+  - name: "logout"
+    method: "CLIENT_ACTION"
+    path: "frontend://auth/logout/start"
+    owner: "Frontend Developer"
+    trigger: "User clicks the Sign out button on the homepage"
+    request:
+      input_schema:
+        type: "null"
+    responses:
+      success:
+        status: 302
+        schema:
+          type: "null"
+        example: null
+      errors:
+        - status: 409
+          code: "logout_not_possible"
+          schema:
+            type: object
+            required: ["code", "message"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+          example:
+            code: "logout_not_possible"
+            message: "Unable to start sign out redirect."
+    observable_signals:
+      - "tenax.auth.session.v1 is cleared before redirect starts"
+      - "React Query sets the auth session to anonymous optimistically during logout mutation"
+      - "UserManager.signoutRedirect is called with post_logout_redirect_uri and state.returnTo='/'"
+      - "If redirect start throws and the browser is not already on the configured post-logout redirect URI, window.location.assign navigates there"
+
+  - name: "query_session"
+    method: "GET"
+    path: "frontend://auth/session"
+    owner: "Frontend Developer"
+    trigger: "Homepage render, window-focus refetch, mount refetch, or explicit query invalidation"
+    request:
+      path_params: []
+      query_params: []
+      headers: []
+    responses:
+      success:
+        status: 200
+        schema:
+          type: object
+          required: ["isAuthenticated", "user", "menu"]
+          properties:
+            isAuthenticated: { type: boolean }
+            user:
+              type: ["object", "null"]
+              required: ["subject", "displayName", "email"]
+              properties:
+                subject: { type: string }
+                displayName: { type: string }
+                email: { type: ["string", "null"] }
+            menu:
+              type: object
+              required: ["visible", "links"]
+              properties:
+                visible: { type: boolean }
+                links:
+                  type: array
+                  items:
+                    type: object
+                    required: ["key", "label", "href"]
+                    properties:
+                      key: { type: string }
+                      label: { type: string }
+                      href: { type: string }
+        anonymous_example:
+          isAuthenticated: false
+          user: null
+          menu:
+            visible: false
+            links: []
+        authenticated_example:
+          isAuthenticated: true
+          user:
+            subject: "usr_1"
+            displayName: "Vlada I"
+            email: "vlada@example.com"
+          menu:
+            visible: true
+            links:
+              - key: "decks"
+                label: "Decks"
+                href: "/decks"
+              - key: "flashcards"
+                label: "Flashcards"
+                href: "/decks/default/flashcards"
+      errors:
+        - status: 500
+          code: "session_read_failed"
+          schema:
+            type: object
+            required: ["code", "message"]
+            properties:
+              code: { type: string }
+              message: { type: string }
+          example:
+            code: "session_read_failed"
+            message: "Unable to read authentication session."
+    observable_signals:
+      - "UserManager.getUser determines whether the route is anonymous or authenticated"
+      - "No backend /api/auth/session request is sent"
+      - "Authenticated state shows the learning menu with /decks and /decks/{defaultDeckId}/flashcards links"
+      - "Anonymous or invalid user state clears tenax.auth.session.v1 and hides menu links"
+
+error_schema:
+  type: object
+  required: ["code", "message"]
+  properties:
+    code: { type: string }
+    message: { type: string }
+
+frontend_contract_notes:
+  dependency: "oidc-client-ts ^3.5.0"
+  query_key: "['auth', 'clientSession']"
+  cache_policy: "staleTime=0, retry=false, refetchOnMount=true, refetchOnWindowFocus=true"
+  route_usage: "src/routes/home.tsx uses useAuthSessionQuery, useLoginStartMutation, and useLogoutMutation"
+  storage_notes:
+    - "Tenax persists the active auth snapshot in sessionStorage under tenax.auth.session.v1"
+    - "oidc-client-ts library state is also stored in sessionStorage, but the exact key names are implementation details"
+  test_requirements:
+    - "Regression test: clicking Sign in calls UserManager.signinRedirect and does not fetch backend /api/auth/* endpoints"
+    - "Callback success test: code+state callback stores tenax.auth.session.v1 and restores returnTo"
+    - "Callback failure test: callback exceptions surface an explicit sign-in callback error"
+    - "Logout test: authenticated homepage returns to anonymous UI after signoutRedirect starts"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  invariants:
+    - "Backend does not expose login-start, callback, logout, or session transport endpoints for the SPA auth flow"
+    - "OIDC code plus PKCE lifecycle is frontend-managed through oidc-client-ts UserManager"
+    - "The homepage auth model is expressed as AuthSessionResponse: isAuthenticated, user, and menu"
