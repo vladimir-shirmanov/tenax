@@ -1,0 +1,105 @@
+contract_version: 1
+feature: "homepage-auth-session"
+endpoint:
+  method: "POST"
+  path: "/api/auth/oidc/login/start"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers:
+    - name: "Content-Type"
+      type: "string"
+      required: true
+      expected: "application/json"
+  body:
+    type: object
+    required: []
+    properties:
+      returnTo:
+        type: string
+        description: "Optional app-relative path to return after successful callback."
+
+responses:
+  success:
+    status: 200
+    behavioral_guarantees:
+      - "Response contains a complete provider authorization URL including PKCE challenge and state parameters."
+      - "`interactionId` maps to server-side ephemeral login state with bounded lifetime."
+    schema:
+      type: object
+      required: ["authorizationUrl", "interactionId", "expiresAtUtc"]
+      properties:
+        authorizationUrl: { type: string, format: uri }
+        interactionId: { type: string }
+        expiresAtUtc: { type: string, format: date-time }
+    example:
+      authorizationUrl: "https://idp.example.com/realms/tenax/protocol/openid-connect/auth?client_id=tenax-web&response_type=code&scope=openid%20profile%20email&code_challenge_method=S256&code_challenge=Ks9nQ...&state=wf9D1...&redirect_uri=https%3A%2F%2Flocalhost%3A7134%2Fapi%2Fauth%2Foidc%2Fcallback"
+      interactionId: "oidc_i_7fd2f7e71f6e43e0"
+      expiresAtUtc: "2026-03-15T13:00:00Z"
+
+  errors:
+    - status: 400
+      code: "invalid_return_to"
+      schema:
+        type: object
+        required: ["code", "message", "errors"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+          errors:
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
+      example:
+        code: "invalid_return_to"
+        message: "Request validation failed"
+        traceId: "00-6dd48fd58f1346aa8f7f2d90df9c8f59-7c838c8b4b97b0be-01"
+        errors:
+          returnTo:
+            - "returnTo must be an app-relative path beginning with '/'"
+
+    - status: 429
+      code: "login_rate_limited"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          retryAfterSeconds: { type: integer }
+          traceId: { type: string }
+      example:
+        code: "login_rate_limited"
+        message: "Too many login attempts. Please retry later."
+        retryAfterSeconds: 30
+        traceId: "00-74e7d97f5d9445588f0d6b4e42632a7f-7636ab85a6dbce2b-01"
+
+    - status: 503
+      code: "oidc_provider_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "oidc_provider_unavailable"
+        message: "Identity provider is temporarily unavailable"
+        traceId: "00-d93f27b3d2f1422788ad8bb6f59d8fbf-1d42a3f34289b22d-01"
+
+frontend_contract_notes:
+  query_key: "auth.session"
+  cache_policy: "No query cache write on login start. Trigger browser redirect to `authorizationUrl`; refetch `auth.session` after callback navigation completes."
+  route_usage: "routes/home.tsx login action/button"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  additive_requirements:
+    - "Do not remove `authorizationUrl` or alter its semantic meaning in v1."
+    - "New response fields must be optional for existing frontend clients."

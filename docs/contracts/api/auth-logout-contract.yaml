@@ -1,0 +1,58 @@
+contract_version: 1
+feature: "homepage-auth-session"
+endpoint:
+  method: "POST"
+  path: "/api/auth/logout"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers:
+    - name: "Cookie"
+      type: "string"
+      required: false
+      notes: "Session cookie when present."
+
+responses:
+  success:
+    status: 200
+    behavioral_guarantees:
+      - "Endpoint is idempotent; returns 200 whether or not an authenticated session existed."
+      - "Local application session cookie is cleared when present."
+    schema:
+      type: object
+      required: ["loggedOut", "postLogoutRedirectUrl"]
+      properties:
+        loggedOut: { type: boolean }
+        postLogoutRedirectUrl: { type: ["string", "null"], format: uri }
+    example:
+      loggedOut: true
+      postLogoutRedirectUrl: "https://idp.example.com/realms/tenax/protocol/openid-connect/logout?post_logout_redirect_uri=https%3A%2F%2Flocalhost%3A5173%2F"
+
+  errors:
+    - status: 503
+      code: "logout_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "logout_unavailable"
+        message: "Logout service is temporarily unavailable"
+        traceId: "00-8ab7f4d1d03e44ca8f6f0d13dc362173-fa729ea52abf73c6-01"
+
+frontend_contract_notes:
+  query_key: "auth.session"
+  cache_policy: "On success, set `auth.session` to anonymous state optimistically and invalidate once. If `postLogoutRedirectUrl` is non-null, perform browser redirect."
+  route_usage: "top-level navigation logout action and homepage authenticated variant"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  additive_requirements:
+    - "`loggedOut` must remain required boolean in v1."
+    - "Clients must tolerate null `postLogoutRedirectUrl` for local-only logout mode."

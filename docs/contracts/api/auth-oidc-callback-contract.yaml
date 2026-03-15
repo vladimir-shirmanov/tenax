@@ -1,0 +1,81 @@
+contract_version: 1
+feature: "homepage-auth-session"
+endpoint:
+  method: "GET"
+  path: "/api/auth/oidc/callback"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params:
+    - name: "code"
+      type: "string"
+      required: false
+    - name: "state"
+      type: "string"
+      required: false
+    - name: "error"
+      type: "string"
+      required: false
+    - name: "error_description"
+      type: "string"
+      required: false
+  headers: []
+
+responses:
+  success:
+    status: 302
+    behavioral_guarantees:
+      - "On successful token exchange and session establishment, response redirects to an app route determined by validated `returnTo` context or `/`."
+      - "Session cookie is issued/updated before redirect target is reached."
+    response_headers:
+      - name: "Location"
+        required: true
+        description: "App-relative success redirect path."
+      - name: "Set-Cookie"
+        required: true
+        description: "Authenticated session cookie."
+    schema:
+      type: object
+      required: []
+      properties: {}
+    example: {}
+
+  errors:
+    - status: 302
+      code: "oidc_callback_failed_redirect"
+      response_headers:
+        - name: "Location"
+          required: true
+          description: "App-relative error redirect path with machine-readable error key in query string."
+      schema:
+        type: object
+        required: []
+        properties: {}
+      example: {}
+
+    - status: 400
+      code: "oidc_callback_invalid_request"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "oidc_callback_invalid_request"
+        message: "OIDC callback request is missing required parameters"
+        traceId: "00-9fc9f813b85842f9b8d8dc9d55d7fd9f-fcf58f6aaea69ce6-01"
+
+frontend_contract_notes:
+  query_key: "auth.session"
+  cache_policy: "Treat callback endpoint as redirect-only transport. After browser lands on frontend route, force refetch of `auth.session` and clear one-time auth error query params from URL state."
+  route_usage: "OIDC provider redirect target -> backend callback -> frontend homepage route"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  additive_requirements:
+    - "Redirect target semantics must remain app-relative and safe-validated in v1."
+    - "Callback must remain compatible with standard OIDC authorization code query parameters."

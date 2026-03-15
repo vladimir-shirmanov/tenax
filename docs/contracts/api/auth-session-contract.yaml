@@ -1,0 +1,100 @@
+contract_version: 1
+feature: "homepage-auth-session"
+endpoint:
+  method: "GET"
+  path: "/api/auth/session"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers:
+    - name: "Cookie"
+      type: "string"
+      required: false
+      notes: "Session cookie when browser already authenticated."
+
+responses:
+  success:
+    status: 200
+    behavioral_guarantees:
+      - "Endpoint returns 200 for both anonymous and authenticated browser sessions."
+      - "`menu.visible` is true only when `isAuthenticated` is true."
+      - "`user` is null when `isAuthenticated` is false."
+    schema:
+      type: object
+      required: ["isAuthenticated", "user", "menu", "authRoutes"]
+      properties:
+        isAuthenticated: { type: boolean }
+        user:
+          type: ["object", "null"]
+          required: ["subject", "displayName"]
+          properties:
+            subject: { type: string }
+            displayName: { type: string }
+            email: { type: ["string", "null"], format: email }
+        menu:
+          type: object
+          required: ["visible", "links"]
+          properties:
+            visible: { type: boolean }
+            links:
+              type: array
+              items:
+                type: object
+                required: ["key", "label", "href"]
+                properties:
+                  key: { type: string }
+                  label: { type: string }
+                  href: { type: string }
+        authRoutes:
+          type: object
+          required: ["loginStart", "logout"]
+          properties:
+            loginStart: { type: string }
+            logout: { type: string }
+    example:
+      isAuthenticated: true
+      user:
+        subject: "0f7ad8a6-3088-4f31-90aa-f205ed1f3a7d"
+        displayName: "Vlada I"
+        email: "vlada@example.com"
+      menu:
+        visible: true
+        links:
+          - key: "decks"
+            label: "Decks"
+            href: "/decks"
+          - key: "flashcards"
+            label: "Flashcards"
+            href: "/decks/default/flashcards"
+      authRoutes:
+        loginStart: "/api/auth/oidc/login/start"
+        logout: "/api/auth/logout"
+
+  errors:
+    - status: 503
+      code: "auth_session_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "auth_session_unavailable"
+        message: "Authentication session service is temporarily unavailable"
+        traceId: "00-11f44d2f4fac44f8bd6a5ed88795ed21-6fe72c4e695747f9-01"
+
+frontend_contract_notes:
+  query_key: "auth.session"
+  cache_policy: "staleTime=10000, retry=1. Refetch on window focus and after login callback or logout mutation success."
+  route_usage: "routes/home.tsx (or routes/index.tsx) and top-level navigation shell"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  additive_requirements:
+    - "Do not remove or rename `menu.visible` without versioned contract migration."
+    - "Do not change anonymous response from 200 to 401 in v1."

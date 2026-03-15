@@ -37,6 +37,27 @@ The flashcard authoring and management epic is implemented against these contrac
 	- API endpoint: `DELETE /api/decks/{deckId}/flashcards/{flashcardId}`
 	- Frontend route usage: `routes/decks.$deckId.flashcards.$flashcardId.tsx` (delete confirmation flow)
 
+## Homepage + OIDC Auth Session Coverage (Planned Contract-First)
+
+The homepage/auth epic is defined contract-first for parallel backend/frontend delivery:
+
+- `auth-session-contract.yaml`
+	- API endpoint: `GET /api/auth/session`
+	- Purpose: single source of truth for anonymous vs authenticated UI state and menu visibility.
+- `auth-oidc-login-start-contract.yaml`
+	- API endpoint: `POST /api/auth/oidc/login/start`
+	- Purpose: initiate OAuth 2.0 Authorization Code + PKCE and return provider authorization URL.
+- `auth-oidc-callback-contract.yaml`
+	- API endpoint: `GET /api/auth/oidc/callback`
+	- Purpose: process authorization-code callback and establish backend session before redirecting to app route.
+- `auth-logout-contract.yaml`
+	- API endpoint: `POST /api/auth/logout`
+	- Purpose: clear local session and provide optional provider logout redirect URL.
+
+Related ADR:
+
+- `docs/adr/0005-oidc-pkce-homepage-auth-session-contract-first.md`
+
 ### Contract-First Alignment Notes
 
 - Backend and frontend tracks were delivered in parallel using ADR 0001 and these contracts as the shared source of truth.
