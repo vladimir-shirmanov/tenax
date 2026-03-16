@@ -1,7 +1,12 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { render } from "@testing-library/react";
 import { HomeRoute } from "./home";
-import { renderRoute } from "../test/test-utils";
+import { createTestQueryClient } from "../test/test-utils";
+import { AppShell } from "../components/AppShell";
+import { ThemeProvider } from "../app/theme";
 
 const mockGetUser = jest.fn();
 const mockSigninRedirect = jest.fn();
@@ -27,6 +32,32 @@ jest.mock("oidc-client-ts", () => {
 });
 
 describe("home route auth behavior", () => {
+  const renderHomeRoute = (initialEntry: string) => {
+    const queryClient = createTestQueryClient();
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/",
+          element: <AppShell />,
+          children: [
+            { index: true, element: <HomeRoute /> },
+            { path: "decks", element: <div>decks</div> },
+            { path: "decks/:deckId/flashcards", element: <div>flashcards</div> },
+          ],
+        },
+      ],
+      { initialEntries: [initialEntry] }
+    );
+
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <RouterProvider router={router} />
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+  };
+
   beforeEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
@@ -51,7 +82,7 @@ describe("home route auth behavior", () => {
 
     const fetchMock = jest.spyOn(global, "fetch");
 
-    renderRoute("/", <HomeRoute />, "/");
+    renderHomeRoute("/");
 
     expect(await screen.findByRole("heading", { name: /welcome to tenax/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
@@ -72,7 +103,7 @@ describe("home route auth behavior", () => {
   });
 
   it("shows the approved missing-config error when runtime auth config is unavailable", async () => {
-    renderRoute("/", <HomeRoute />, "/");
+    renderHomeRoute("/");
 
     expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
 
@@ -116,7 +147,7 @@ describe("home route auth behavior", () => {
     mockGetUser.mockResolvedValue(authenticatedUser);
     window.history.replaceState({}, "", "/?code=test-code&state=test-state");
 
-    renderRoute("/", <HomeRoute />, "/");
+    renderHomeRoute("/?code=test-code&state=test-state");
 
     expect(await screen.findByText(/signed in as vlada i/i)).toBeInTheDocument();
 
@@ -142,7 +173,7 @@ describe("home route auth behavior", () => {
     mockGetUser.mockResolvedValue(null);
     window.history.replaceState({}, "", "/?code=test-code");
 
-    renderRoute("/", <HomeRoute />, "/");
+    renderHomeRoute("/?code=test-code");
 
     expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.queryByText(/unable to complete sign in callback\./i)).not.toBeInTheDocument();
@@ -171,13 +202,13 @@ describe("home route auth behavior", () => {
     mockGetUser.mockResolvedValue(null);
     window.history.replaceState({}, "", "/?code=test-code&state=test-state");
 
-    renderRoute("/", <HomeRoute />, "/");
+    renderHomeRoute("/?code=test-code&state=test-state");
 
     expect(
-      await screen.findByText(
+      await screen.findAllByText(
         /sign in callback state is missing, expired, or does not match the active browser session\./i
       )
-    ).toBeInTheDocument();
+    ).not.toHaveLength(0);
     expect(mockSigninRedirectCallback).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem("tenax.auth.session.v1")).toBeNull();
   });
@@ -207,13 +238,13 @@ describe("home route auth behavior", () => {
       })
       .mockResolvedValueOnce(null);
 
-    renderRoute("/", <HomeRoute />, "/");
+    renderHomeRoute("/");
 
     expect(await screen.findByText(/signed in as vlada i/i)).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: /learning menu/i });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
-    expect(screen.getByRole("link", { name: "Flashcards" })).toHaveAttribute(
+    expect(within(nav).getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
+    expect(within(nav).getByRole("link", { name: "Flashcards" })).toHaveAttribute(
       "href",
       "/decks/default/flashcards"
     );

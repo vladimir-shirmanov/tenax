@@ -16,25 +16,25 @@ export const FlashcardListRoute = () => {
       title="Flashcards"
       subtitle="Create and maintain your deck content with quick edit and delete actions."
     >
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <p className="text-sm text-stone-600">Deck: {deckId}</p>
+      <div className="section-row">
+        <p className="text-muted" style={{ margin: 0 }}>Deck: {deckId}</p>
         <Link
           to={`/decks/${deckId}/flashcards/new`}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white"
+          className="button button--primary"
         >
           New flashcard
         </Link>
       </div>
 
-      {query.isLoading ? <p>Loading flashcards...</p> : null}
+      {query.isLoading ? <p className="text-muted">Loading flashcards...</p> : null}
 
       {query.isError ? (
-        <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
+        <div role="alert" className="alert">
           <p>{getApiErrorMessage(query.error)}</p>
           {isPersistenceUnavailableError(query.error) ? (
             <button
               type="button"
-              className="mt-3 rounded-lg border border-stone-500 px-3 py-1.5 text-sm font-semibold"
+              className="button button--ghost"
               onClick={() => {
                 void query.refetch();
               }}
@@ -46,21 +46,21 @@ export const FlashcardListRoute = () => {
       ) : null}
 
       {query.isSuccess && query.data.items.length === 0 ? (
-        <p>No flashcards found for this deck yet.</p>
+        <p className="text-muted">No flashcards found for this deck yet.</p>
       ) : null}
 
       {query.isSuccess && query.data.items.length > 0 ? (
-        <ul className="space-y-3" aria-label="flashcard list">
+        <ul className="flat-list" aria-label="flashcard list">
           {query.data.items.map((item) => (
-            <li key={item.id} className="rounded-lg border border-stone-200 p-3">
+            <li key={item.id} className="flat-list__item">
               <Link
                 to={`/decks/${deckId}/flashcards/${item.id}`}
-                className="font-semibold text-ink hover:underline"
+                className="flat-list__title"
               >
                 {item.term}
               </Link>
-              <p className="mt-1 text-sm text-stone-700">{item.definitionPreview}</p>
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="flat-list__meta">{item.definitionPreview}</p>
+              <p className="flat-list__meta">
                 Updated: {new Date(item.updatedAtUtc).toLocaleString()} {item.hasImage ? "| image" : ""}
               </p>
             </li>

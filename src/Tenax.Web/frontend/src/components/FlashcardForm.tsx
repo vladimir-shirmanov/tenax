@@ -65,15 +65,15 @@ export const FlashcardForm = ({
   };
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+    <form className="form-grid" onSubmit={handleSubmit} noValidate>
       {formError ? (
-        <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
+        <div role="alert" className="alert">
           {formError}
         </div>
       ) : null}
 
       <div>
-        <label htmlFor="term" className="mb-1 block text-sm font-semibold text-ink">
+        <label htmlFor="term" className="field-label">
           Term or phrase
         </label>
         <input
@@ -81,18 +81,18 @@ export const FlashcardForm = ({
           name="term"
           value={values.term}
           onChange={(event) => setValues((prev) => ({ ...prev, term: event.target.value }))}
-          className="w-full rounded-lg border border-stone-400 bg-white px-3 py-2"
+          className="field-input"
           aria-invalid={Boolean(fieldErrors?.term || clientFieldErrors.term)}
           aria-describedby="term-error"
           maxLength={200}
         />
-        <p id="term-error" className="mt-1 min-h-5 text-xs text-ember">
+        <p id="term-error" className="field-error">
           {fieldErrors?.term ?? clientFieldErrors.term ?? ""}
         </p>
       </div>
 
       <div>
-        <label htmlFor="definition" className="mb-1 block text-sm font-semibold text-ink">
+        <label htmlFor="definition" className="field-label">
           Definition
         </label>
         <textarea
@@ -102,18 +102,18 @@ export const FlashcardForm = ({
           onChange={(event) =>
             setValues((prev) => ({ ...prev, definition: event.target.value }))
           }
-          className="min-h-28 w-full rounded-lg border border-stone-400 bg-white px-3 py-2"
+          className="field-input field-input--textarea"
           aria-invalid={Boolean(fieldErrors?.definition || clientFieldErrors.definition)}
           aria-describedby="definition-error"
           maxLength={2000}
         />
-        <p id="definition-error" className="mt-1 min-h-5 text-xs text-ember">
+        <p id="definition-error" className="field-error">
           {fieldErrors?.definition ?? clientFieldErrors.definition ?? ""}
         </p>
       </div>
 
       <div>
-        <label htmlFor="imageUrl" className="mb-1 block text-sm font-semibold text-ink">
+        <label htmlFor="imageUrl" className="field-label">
           Image URL (optional)
         </label>
         <input
@@ -124,12 +124,12 @@ export const FlashcardForm = ({
           onChange={(event) =>
             setValues((prev) => ({ ...prev, imageUrl: event.target.value }))
           }
-          className="w-full rounded-lg border border-stone-400 bg-white px-3 py-2"
+          className="field-input"
           aria-invalid={Boolean(fieldErrors?.imageUrl)}
           aria-describedby="imageUrl-error"
           maxLength={2048}
         />
-        <p id="imageUrl-error" className="mt-1 min-h-5 text-xs text-ember">
+        <p id="imageUrl-error" className="field-error">
           {fieldErrors?.imageUrl ?? ""}
         </p>
       </div>
@@ -137,7 +137,7 @@ export const FlashcardForm = ({
       <button
         type="submit"
         disabled={submitDisabled}
-        className="rounded-lg bg-pine px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="button button--primary"
       >
         {isSubmitting ? "Saving..." : submitLabel}
       </button>

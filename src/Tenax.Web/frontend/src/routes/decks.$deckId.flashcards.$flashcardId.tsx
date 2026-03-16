@@ -20,33 +20,28 @@ export const FlashcardDetailRoute = () => {
 
   return (
     <PageScaffold title="Flashcard detail" subtitle="Review full content and metadata.">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link to={`/decks/${deckId}/flashcards`} className="text-sm font-semibold text-pine hover:underline">
+      <div className="section-row" style={{ marginBottom: "1rem" }}>
+        <Link to={`/decks/${deckId}/flashcards`} className="link-inline">
           Back to flashcards
         </Link>
-        <Link
-          to={`/decks/${deckId}/flashcards/${flashcardId}/edit`}
-          className="rounded-lg bg-ink px-3 py-1.5 text-sm font-semibold text-white"
-        >
-          Edit
-        </Link>
-        <button
-          type="button"
-          className="rounded-lg border border-ember px-3 py-1.5 text-sm font-semibold text-ember"
-          onClick={() => setConfirmDelete(true)}
-        >
-          Delete
-        </button>
+        <div className="section-row">
+          <Link to={`/decks/${deckId}/flashcards/${flashcardId}/edit`} className="button button--primary">
+            Edit
+          </Link>
+          <button type="button" className="button button--danger" onClick={() => setConfirmDelete(true)}>
+            Delete
+          </button>
+        </div>
       </div>
 
-      {detailQuery.isLoading ? <p>Loading flashcard...</p> : null}
+      {detailQuery.isLoading ? <p className="text-muted">Loading flashcard...</p> : null}
       {detailQuery.isError ? (
-        <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
+        <div role="alert" className="alert">
           <p>{getApiErrorMessage(detailQuery.error)}</p>
           {isPersistenceUnavailableError(detailQuery.error) ? (
             <button
               type="button"
-              className="mt-3 rounded-lg border border-stone-500 px-3 py-1.5 text-sm font-semibold"
+              className="button button--ghost"
               onClick={() => {
                 void detailQuery.refetch();
               }}
@@ -58,19 +53,17 @@ export const FlashcardDetailRoute = () => {
       ) : null}
 
       {detailQuery.data ? (
-        <article className="space-y-4">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-stone-600">Term</h2>
-            <p className="text-xl font-semibold text-ink">{detailQuery.data.term}</p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-stone-600">Definition</h2>
-            <p className="whitespace-pre-wrap">{detailQuery.data.definition}</p>
-          </div>
+        <article className="flashcard-content">
+          <dl>
+            <dt>Term</dt>
+            <dd style={{ fontSize: "1.3rem", fontWeight: 700 }}>{detailQuery.data.term}</dd>
+            <dt>Definition</dt>
+            <dd className="whitespace-pre-wrap">{detailQuery.data.definition}</dd>
+          </dl>
           {detailQuery.data.imageUrl ? (
             <img src={detailQuery.data.imageUrl} alt="Flashcard" className="max-h-52 rounded-lg object-cover" />
           ) : null}
-          <p className="text-xs text-stone-500">
+          <p className="text-muted" style={{ fontSize: "0.82rem" }}>
             Updated {new Date(detailQuery.data.updatedAtUtc).toLocaleString()}
           </p>
         </article>
@@ -81,24 +74,24 @@ export const FlashcardDetailRoute = () => {
           role="dialog"
           aria-modal="true"
           aria-label="Confirm delete flashcard"
-          className="mt-6 rounded-lg border border-stone-300 bg-stone-100 p-4"
+          className="dialog"
         >
-          <p className="text-sm">Delete this flashcard? This cannot be undone.</p>
+          <p className="text-muted" style={{ margin: 0 }}>Delete this flashcard? This cannot be undone.</p>
           {deleteMutation.isError ? (
-            <p role="alert" className="mt-2 text-sm text-ember">
+            <p role="alert" className="field-error">
               {getApiErrorMessage(deleteMutation.error)}
             </p>
           ) : null}
           {isConcurrencyConflictError(deleteMutation.error) ||
           isPersistenceUnavailableError(deleteMutation.error) ? (
-            <p className="mt-2 text-xs text-stone-700">
+            <p className="text-muted" style={{ fontSize: "0.82rem" }}>
               Refreshing canonical state is in progress. Review the latest content, then retry delete.
             </p>
           ) : null}
-          <div className="mt-3 flex gap-2">
+          <div className="section-row" style={{ justifyContent: "flex-start", marginTop: "0.75rem" }}>
             <button
               type="button"
-              className="rounded-lg bg-ember px-3 py-1.5 text-sm font-semibold text-white"
+              className="button button--danger"
               onClick={() => {
                 deleteMutation.mutate(undefined, {
                   onSuccess: () => {
@@ -112,7 +105,7 @@ export const FlashcardDetailRoute = () => {
             </button>
             <button
               type="button"
-              className="rounded-lg border border-stone-400 px-3 py-1.5 text-sm"
+              className="button button--ghost"
               onClick={() => setConfirmDelete(false)}
               disabled={deleteMutation.isPending}
             >

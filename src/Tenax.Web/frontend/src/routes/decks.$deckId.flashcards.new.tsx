@@ -11,8 +11,8 @@ export const FlashcardCreateRoute = () => {
 
   return (
     <PageScaffold title="Create flashcard" subtitle="Add a new study card to this deck.">
-      <div className="mb-4">
-        <Link to={`/decks/${deckId}/flashcards`} className="text-sm font-semibold text-pine hover:underline">
+      <div style={{ marginBottom: "1rem" }}>
+        <Link to={`/decks/${deckId}/flashcards`} className="link-inline">
           Back to flashcards
         </Link>
       </div>

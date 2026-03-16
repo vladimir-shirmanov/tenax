@@ -13,8 +13,8 @@ Use it to maintain backend JWT resource-server behavior and frontend `oidc-clien
   - Return contract-aligned `401` and `403` error envelopes for unauthorized/forbidden access.
 - Frontend scope:
   - Own OIDC Authorization Code + PKCE login and logout flow in browser via `oidc-client-ts` `UserManager`.
-  - Derive homepage authenticated state from frontend-managed token/session state.
-  - Show homepage learning menu links (decks, flashcards) only when authenticated.
+  - Derive frontend navigation/authenticated state from frontend-managed token/session state.
+  - Show learning menu links (decks, flashcards) in the persistent app header only when authenticated.
   - Attach bearer access token to protected API calls.
   - Clear local auth session when API responds with `401` or `403`.
 
@@ -46,6 +46,13 @@ Operational expectation:
 
 Frontend auth session behavior is local-session based and client-managed:
 
+- Theme and shell behavior:
+  - App theme preference is client-managed and persisted in browser `localStorage` under key `tenax.theme.preference`.
+  - Allowed theme preference values are `system`, `light`, and `dark`; default is `system` when no stored preference exists.
+  - Theme preference is resolved before React mount so the effective theme is applied on first paint.
+  - Runtime sets the root `data-theme` selector and browser `color-scheme` to match the active light/dark mode.
+  - App shell header owns global navigation, auth actions, and theme controls across routed SPA surfaces.
+
 - Browser runtime auth config bootstrap:
   - `window.TENAX_AUTH_CONFIG` is initialized before React render in `src/Tenax.Web/frontend/src/main.tsx`.
   - The bootstrap logic lives in `src/Tenax.Web/frontend/src/api/auth-config.ts` and resolves config with window-first, Vite-env-second precedence.
@@ -76,12 +83,19 @@ Frontend auth session behavior is local-session based and client-managed:
   - Adds `Authorization: Bearer <token>` when an active access token is available.
   - Clears local auth session storage on `401` and `403` responses.
 
-Homepage behavior expectations:
+User-visible navigation behavior expectations:
 
-- Anonymous users see sign-in affordance and no learning menu.
+- Header always shows the home navigation affordance.
+- Anonymous users see sign-in affordance and no decks/flashcards learning menu links.
 - Authenticated users see learning menu links to:
   - `/decks`
   - `/decks/{defaultDeckId}/flashcards`
+
+Theme control behavior expectations:
+
+- Header exposes three theme controls: `System`, `Light`, and `Dark`.
+- Selected theme preference persists across reloads in the same browser profile.
+- `system` mode follows OS light/dark preference changes; explicit `light` or `dark` does not auto-switch with OS changes.
 
 ## Local Development Keycloak Alignment
 
@@ -100,10 +114,12 @@ Homepage behavior expectations:
 - `docs/adr/0007-development-only-keycloak-orchestration-and-realm-import.md`
 - `docs/adr/0008-frontend-oidc-client-ts-auth-flow.md`
 - `docs/adr/0009-frontend-runtime-auth-config-bootstrap.md`
+- `docs/adr/0011-frontend-shell-redesign-and-theme-architecture.md`
 - `docs/contracts/api/auth-jwt-bearer-discovery-validation-boundary-contract.yaml`
 - `docs/contracts/api/aspire-keycloak-development-orchestration-no-api-response-changes-contract.yaml`
 - `docs/contracts/api/frontend-oidc-client-ts-auth-session-interaction-contract.yaml`
 - `docs/contracts/api/frontend-runtime-auth-config-bootstrap-contract.yaml`
+- `docs/contracts/api/frontend-shell-redesign-no-api-response-changes-contract.yaml`
 - `docs/contracts/api/auth-session-contract.yaml` (superseded)
 - `docs/contracts/api/auth-oidc-login-start-contract.yaml` (superseded)
 - `docs/contracts/api/auth-oidc-callback-contract.yaml` (superseded)

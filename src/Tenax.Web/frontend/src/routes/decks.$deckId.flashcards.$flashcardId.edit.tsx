@@ -19,26 +19,23 @@ export const FlashcardEditRoute = () => {
 
   return (
     <PageScaffold title="Edit flashcard" subtitle="Update content and keep this card accurate.">
-      <div className="mb-4">
-        <Link
-          to={`/decks/${deckId}/flashcards/${flashcardId}`}
-          className="text-sm font-semibold text-pine hover:underline"
-        >
+      <div style={{ marginBottom: "1rem" }}>
+        <Link to={`/decks/${deckId}/flashcards/${flashcardId}`} className="link-inline">
           Back to detail
         </Link>
       </div>
-      {detailQuery.isLoading ? <p>Loading flashcard...</p> : null}
+      {detailQuery.isLoading ? <p className="text-muted">Loading flashcard...</p> : null}
       {detailQuery.isError ? (
-        <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
+        <div role="alert" className="alert">
           {getApiErrorMessage(detailQuery.error)}
         </div>
       ) : null}
       {isConcurrencyConflictError(mutation.error) ? (
-        <div className="mb-4 rounded-lg border border-stone-300 bg-stone-100 p-3 text-sm">
-          <p>Reload latest flashcard and retry your changes.</p>
+        <div className="dialog" style={{ marginTop: 0, marginBottom: "1rem" }}>
+          <p className="text-muted" style={{ margin: 0 }}>Reload latest flashcard and retry your changes.</p>
           <button
             type="button"
-            className="mt-2 rounded-lg border border-stone-500 px-3 py-1.5 text-xs font-semibold"
+            className="button button--ghost"
             onClick={() => {
               void detailQuery.refetch();
             }}

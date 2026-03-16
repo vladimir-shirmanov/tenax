@@ -60,6 +60,21 @@ The homepage/auth epic is now aligned to frontend-owned OIDC PKCE and backend JW
 - `auth-logout-contract.yaml`
 	- Contract status: superseded and out of scope in current delivery.
 
+## Frontend Shell Redesign Coverage (Implemented)
+
+The frontend shell redesign is implemented against:
+
+- `frontend-shell-redesign-no-api-response-changes-contract.yaml`
+	- API endpoint family: `ANY /api/*`
+	- Contract posture: no backend HTTP request/response schema changes.
+	- Implemented frontend behavior:
+		- A persistent SPA shell and header now wrap home, decks, and flashcard CRUD/detail routes.
+		- Header-owned theme control exposes `system`, `light`, and `dark` preference selection.
+		- Theme preference persists locally under `tenax.theme.preference` in browser `localStorage`.
+		- Effective theme is resolved before React mount so root theme and browser `color-scheme` apply on first paint.
+		- Existing route paths, auth flow, TanStack Query keys, and mutation invalidation behavior are preserved.
+	- Related ADR: `docs/adr/0011-frontend-shell-redesign-and-theme-architecture.md`.
+
 Related ADRs:
 
 - `docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md` (accepted)
@@ -74,7 +89,7 @@ Operational reference:
 
 - Backend and frontend tracks continue parallel delivery using ADR-backed contract files as source of truth.
 - Auth scope now explicitly forbids backend login/callback/logout/session endpoints unless a future ADR reintroduces them with new contracts.
-- Homepage route exposes decks/flashcards navigation only when frontend-managed auth session is authenticated.
+- Persistent header shell exposes global navigation across the SPA; decks and flashcards menu links remain gated by frontend-managed authenticated session state.
 - TanStack Query and route behavior must follow the `frontend_contract_notes` policies defined in active contracts.
 
 ### Persistence Error Behavior Highlights (Implemented)

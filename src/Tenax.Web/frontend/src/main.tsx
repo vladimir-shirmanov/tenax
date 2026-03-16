@@ -2,7 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./app/App";
 import { initializeRuntimeAuthConfig } from "./api/auth-config";
+import { resolveThemeBeforeRender } from "./app/theme";
 import "./styles.css";
+
+resolveThemeBeforeRender();
 
 initializeRuntimeAuthConfig({
   VITE_TENAX_AUTH_AUTHORITY: import.meta.env.VITE_TENAX_AUTH_AUTHORITY,

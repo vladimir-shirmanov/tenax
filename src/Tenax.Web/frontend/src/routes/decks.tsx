@@ -4,16 +4,18 @@ import { PageScaffold } from "../components/PageScaffold";
 export const DecksRoute = () => (
   <PageScaffold
     title="Decks"
-    subtitle="Choose a deck to continue your flashcard authoring flow."
+    subtitle="Choose a deck and continue authoring or reviewing without visual noise."
   >
-    <p className="mb-4 text-sm text-stone-700">
-      Deck management is not implemented in this slice yet.
-    </p>
-    <Link
-      to="/decks/default/flashcards"
-      className="inline-flex rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-stone-100"
-    >
-      Open default deck flashcards
-    </Link>
+    <ul className="flat-list" role="list" aria-label="deck list">
+      <li className="flat-list__item">
+        <h2 className="flat-list__title">Default deck</h2>
+        <p className="flat-list__meta">Deck management is not implemented in this slice yet.</p>
+        <p className="flat-list__meta">
+          <Link to="/decks/default/flashcards" className="link-inline">
+            Open default deck flashcards
+          </Link>
+        </p>
+      </li>
+    </ul>
   </PageScaffold>
 );

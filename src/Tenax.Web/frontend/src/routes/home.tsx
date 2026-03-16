@@ -1,22 +1,15 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { getApiErrorMessage } from "../api/errors";
-import {
-  useAuthSessionQuery,
-  useLoginStartMutation,
-  useLogoutMutation,
-} from "../api/auth";
+import { useAuthSessionQuery } from "../api/auth";
 import { PageScaffold } from "../components/PageScaffold";
 
 export const HomeRoute = () => {
-  const location = useLocation();
   const sessionQuery = useAuthSessionQuery();
-  const loginMutation = useLoginStartMutation();
-  const logoutMutation = useLogoutMutation();
 
   if (sessionQuery.isLoading) {
     return (
       <PageScaffold title="Welcome to Tenax" subtitle="Your language study home.">
-        <p>Loading session...</p>
+        <p className="text-muted">Loading session...</p>
       </PageScaffold>
     );
   }
@@ -24,11 +17,11 @@ export const HomeRoute = () => {
   if (sessionQuery.isError) {
     return (
       <PageScaffold title="Welcome to Tenax" subtitle="Your language study home.">
-        <div role="alert" className="rounded-lg border border-ember bg-orange-50 p-3 text-sm">
+        <div role="alert" className="alert">
           <p>{getApiErrorMessage(sessionQuery.error)}</p>
           <button
             type="button"
-            className="mt-3 rounded-lg border border-stone-500 px-3 py-1.5 text-sm font-semibold"
+            className="button button--ghost"
             onClick={() => {
               void sessionQuery.refetch();
             }}
@@ -43,7 +36,7 @@ export const HomeRoute = () => {
   if (!sessionQuery.data) {
     return (
       <PageScaffold title="Welcome to Tenax" subtitle="Your language study home.">
-        <p>Session is unavailable right now.</p>
+        <p className="text-muted">Session is unavailable right now.</p>
       </PageScaffold>
     );
   }
@@ -54,67 +47,83 @@ export const HomeRoute = () => {
   return (
     <PageScaffold
       title="Welcome to Tenax"
-      subtitle="Review your learning flow and jump directly into flashcards."
+      subtitle="A quiet place to return to your language learning rhythm."
     >
-      {isAuthenticated && user ? (
-        <p className="mb-4 text-sm text-stone-700">Signed in as {user.displayName}</p>
-      ) : (
-        <p className="mb-4 text-sm text-stone-700">Sign in to access your study menu.</p>
-      )}
+      {!isAuthenticated ? (
+        <section className="stack">
+          <p className="landing-eyebrow">Focused language practice</p>
+          <h2 className="landing-heading">Build retention through deliberate review, not clutter.</h2>
+          <p className="landing-copy">
+            Tenax keeps each study session clear and calm so you can revisit vocabulary,
+            reinforce meaning, and resume progress quickly from any device.
+          </p>
+          <hr className="landing-divider" />
+          <p className="text-muted">
+            Sign in from the header to open your study menu and continue where you left off.
+          </p>
+        </section>
+      ) : null}
 
-      {showMenu ? (
-        <nav aria-label="Learning menu" className="mb-6">
-          <ul className="space-y-2" role="list">
-            {menu.links.map((link) => (
-              <li key={link.key}>
-                <Link
-                  to={link.href}
-                  className="inline-flex rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-stone-100"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+      {isAuthenticated && user ? (
+        <section className="stack">
+          <div className="section-row">
+            <p className="landing-eyebrow" style={{ marginBottom: 0 }}>
+              Rapid resume
+            </p>
+            <p className="text-muted" style={{ margin: 0 }}>
+              Signed in as {user.displayName}
+            </p>
+          </div>
+          <h2 className="landing-heading">Continue your study flow in one step.</h2>
+          <p className="landing-copy">
+            Jump directly to your active deck or open authoring tools to capture new terms while
+            momentum is fresh.
+          </p>
+
+          <nav aria-label="Learning menu">
+            <ul className="flat-list" role="list">
+              {showMenu
+                ? menu.links.map((link) => (
+                    <li key={link.key} className="flat-list__item">
+                      <Link to={link.href} className="flat-list__title">
+                        {link.label}
+                      </Link>
+                      <p className="flat-list__meta">Open {link.label.toLowerCase()} and continue.</p>
+                    </li>
+                  ))
+                : null}
+            </ul>
+          </nav>
+        </section>
+      ) : null}
+
+      {!isAuthenticated ? (
+        <nav className="inline-nav" aria-label="Available study routes">
+          <Link to="/decks">Browse decks</Link>
+          <Link to="/decks/default/flashcards">Preview flashcards</Link>
         </nav>
       ) : null}
 
-      <div className="flex flex-wrap gap-3">
-        {!isAuthenticated ? (
+      {!showMenu && isAuthenticated ? (
+        <div className="alert" role="alert">
+          <p className="text-muted" style={{ margin: 0 }}>
+            Your study menu is unavailable right now. Try refreshing session state.
+          </p>
           <button
             type="button"
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white"
+            className="button button--ghost"
             onClick={() => {
-              const returnTo = `${location.pathname}${location.search}${location.hash}`;
-              loginMutation.mutate({ returnTo });
+              void sessionQuery.refetch();
             }}
-            disabled={loginMutation.isPending}
           >
-            {loginMutation.isPending ? "Starting sign in..." : "Sign in"}
+            Reload session
           </button>
-        ) : (
-          <button
-            type="button"
-            className="rounded-lg border border-stone-500 px-4 py-2 text-sm font-semibold"
-            onClick={() => {
-              logoutMutation.mutate();
-            }}
-            disabled={logoutMutation.isPending}
-          >
-            {logoutMutation.isPending ? "Signing out..." : "Sign out"}
-          </button>
-        )}
-      </div>
-
-      {loginMutation.isError ? (
-        <p role="alert" className="mt-3 text-sm text-ember">
-          {getApiErrorMessage(loginMutation.error)}
-        </p>
+        </div>
       ) : null}
 
-      {logoutMutation.isError ? (
-        <p role="alert" className="mt-3 text-sm text-ember">
-          {getApiErrorMessage(logoutMutation.error)}
+      {sessionQuery.isFetching ? (
+        <p className="text-muted" style={{ marginBottom: 0 }}>
+          Refreshing session...
         </p>
       ) : null}
     </PageScaffold>
