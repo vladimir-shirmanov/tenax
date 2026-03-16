@@ -161,6 +161,7 @@ interaction_endpoints:
             message: "Sign in callback state is missing, expired, or does not match the active browser session."
     observable_signals:
       - "useAuthSessionQuery calls signinRedirectCallback only for valid sign-in callback signatures"
+      - "If code is present without state, sign-in callback processing is skipped and the session query continues without attempting signinRedirectCallback"
       - "tenax.auth.session.v1 is updated with accessToken, optional idToken, tokenType, scope, and expiresAtEpochSeconds"
       - "window.history.replaceState removes callback query parameters and restores the saved returnTo path"
       - "On failure, the homepage renders an error alert and the stored Tenax auth session is cleared"

@@ -130,24 +130,56 @@ describe("home route auth behavior", () => {
     expect(storedSessionRaw).toContain("access-token");
   });
 
-  it("renders explicit callback error when callback processing fails", async () => {
+  it("does not process sign-in callback when code is present without state", async () => {
     window.TENAX_AUTH_CONFIG = {
       authority: "https://idp.example.com/realms/tenax",
       clientId: "tenax-web",
-      redirectUri: "http://localhost/",
-      postLogoutRedirectUri: "http://localhost/",
+      redirectUri: "http://localhost:19073/",
+      postLogoutRedirectUri: "http://localhost:19073/",
       defaultDeckId: "default",
     };
 
-    mockSigninRedirectCallback.mockRejectedValue(new Error("state mismatch"));
+    mockGetUser.mockResolvedValue(null);
+    window.history.replaceState({}, "", "/?code=test-code");
+
+    renderRoute("/", <HomeRoute />, "/");
+
+    expect(await screen.findByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.queryByText(/unable to complete sign in callback\./i)).not.toBeInTheDocument();
+    expect(mockSigninRedirectCallback).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("tenax.auth.session.v1")).toBeNull();
+  });
+
+  it("maps callback state mismatch to explicit contract error and clears session", async () => {
+    window.TENAX_AUTH_CONFIG = {
+      authority: "https://idp.example.com/realms/tenax",
+      clientId: "tenax-web",
+      redirectUri: "http://localhost:19073/",
+      postLogoutRedirectUri: "http://localhost:19073/",
+      defaultDeckId: "default",
+    };
+
+    sessionStorage.setItem(
+      "tenax.auth.session.v1",
+      JSON.stringify({
+        accessToken: "stale-token",
+        expiresAtEpochSeconds: Math.floor(Date.now() / 1000) + 120,
+      })
+    );
+
+    mockSigninRedirectCallback.mockRejectedValue(new Error("No matching state found in storage"));
     mockGetUser.mockResolvedValue(null);
     window.history.replaceState({}, "", "/?code=test-code&state=test-state");
 
     renderRoute("/", <HomeRoute />, "/");
 
     expect(
-      await screen.findByText(/unable to complete sign in callback\./i)
+      await screen.findByText(
+        /sign in callback state is missing, expired, or does not match the active browser session\./i
+      )
     ).toBeInTheDocument();
+    expect(mockSigninRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("tenax.auth.session.v1")).toBeNull();
   });
 
   it("renders authenticated menu and logs out to anonymous state", async () => {

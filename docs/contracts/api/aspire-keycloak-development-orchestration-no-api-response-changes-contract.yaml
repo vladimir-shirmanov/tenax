@@ -74,7 +74,7 @@ frontend_contract_notes:
   route_usage: "No frontend route response parser changes required"
   local_dev_alignment:
     - "The imported development realm includes a public tenax-spa client for SPA Authorization Code + PKCE login."
-    - "The dev SPA client allows both http://127.0.0.1:5173 and http://localhost:5173 as redirect/web origins."
+    - "The dev SPA client allows loopback-only wildcard local port patterns for both http://127.0.0.1 and http://localhost as redirect/web origins."
     - "AppHost-projected VITE_TENAX_AUTH_* defaults must stay aligned with the imported realm's authority, audience, client id, and redirect-origin settings."
 
 compatibility_rules:

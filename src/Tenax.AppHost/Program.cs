@@ -39,6 +39,12 @@ if (!skipFrontend)
 
     if (isDevelopment)
     {
+        var frontendHttpEndpoint = frontend.GetEndpoint("http");
+
+        frontend.WithEnvironment(FrontendAuthEnvironment.FrontendOriginVariableName, ReferenceExpression.Create($"{frontendHttpEndpoint}"));
+        frontend.WithEnvironment(FrontendAuthEnvironment.RedirectUriVariableName, ReferenceExpression.Create($"{frontendHttpEndpoint}/"));
+        frontend.WithEnvironment(FrontendAuthEnvironment.PostLogoutRedirectUriVariableName, ReferenceExpression.Create($"{frontendHttpEndpoint}/"));
+
         foreach (var environmentVariable in FrontendAuthEnvironment.GetDevelopmentViteEnvironment(Environment.GetEnvironmentVariable))
         {
             frontend.WithEnvironment(environmentVariable.Key, environmentVariable.Value);

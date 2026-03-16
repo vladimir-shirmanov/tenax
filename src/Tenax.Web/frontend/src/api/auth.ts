@@ -139,10 +139,18 @@ const readReturnTo = (state: unknown): string => {
 };
 
 const hasSignInCallbackParams = (query: URLSearchParams) =>
-  query.has("code") || query.has("error");
+  query.has("error") || (query.has("code") && query.has("state"));
 
 const hasSignOutCallbackParams = (query: URLSearchParams) =>
   query.has("state") && !query.has("code") && !query.has("error");
+
+const isCallbackStateMismatchError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /(no matching state found in storage|state mismatch)/i.test(error.message);
+};
 
 const resolveCallbackIfPresent = async () => {
   if (typeof window === "undefined") {
@@ -168,6 +176,15 @@ const resolveCallbackIfPresent = async () => {
     } catch (error) {
       clearAuthSession();
       logAuthError("callback", error);
+
+      if (isCallbackStateMismatchError(error)) {
+        throw toAuthError(
+          "oidc_callback_state_mismatch",
+          "Sign in callback state is missing, expired, or does not match the active browser session.",
+          409
+        );
+      }
+
       throw toAuthError("oidc_callback_invalid", "Unable to complete sign in callback.", 400);
     }
   }

@@ -57,7 +57,9 @@
   - Creates one stable browser contract that works for both AppHost/Vite dev and future hosted SPA delivery models.
 - Implemented local-development alignment:
   - AppHost now projects the contract-defined `VITE_TENAX_AUTH_*` values in Development through `src/Tenax.AppHost/FrontendAuthEnvironment.cs`.
-  - The default projected frontend redirect URI is `http://127.0.0.1:5173/`, while the imported dev Keycloak realm also permits `http://localhost:5173/` for local overrides.
+  - AppHost projects `VITE_TENAX_AUTH_FRONTEND_ORIGIN` from the frontend endpoint origin assigned at runtime and projects redirect URIs from that effective origin.
+  - Frontend bootstrap derives `redirectUri` from `VITE_TENAX_AUTH_FRONTEND_ORIGIN` when explicit redirect URI values are absent.
+  - The imported dev Keycloak realm permits loopback wildcard port patterns for `localhost` and `127.0.0.1` to match dynamic local ports.
   - The development realm import includes a public `tenax-spa` client aligned with the projected authority, audience, and redirect-origin expectations.
 - Trade-offs and risks:
   - Vite env values are available during dev/build, so future hosted deployments still need a host-level bootstrap mechanism if config must vary without rebuild.

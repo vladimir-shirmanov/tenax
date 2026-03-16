@@ -81,4 +81,24 @@ describe("runtime auth config bootstrap", () => {
     });
     expect(window.TENAX_AUTH_CONFIG).toEqual(config);
   });
+
+  it("derives redirect URIs from frontend origin when explicit redirect env is absent", () => {
+    const config = initializeRuntimeAuthConfig({
+      VITE_TENAX_AUTH_AUTHORITY: "https://idp.example.com/realms/tenax/",
+      VITE_TENAX_AUTH_CLIENT_ID: "tenax-spa",
+      VITE_TENAX_AUTH_FRONTEND_ORIGIN: " http://127.0.0.1:19073 ",
+      VITE_TENAX_AUTH_AUDIENCE: "tenax-web-api",
+    });
+
+    expect(config).toEqual({
+      authority: "https://idp.example.com/realms/tenax",
+      clientId: "tenax-spa",
+      redirectUri: "http://127.0.0.1:19073/",
+      postLogoutRedirectUri: "http://127.0.0.1:19073/",
+      audience: "tenax-web-api",
+      defaultDeckId: "default",
+      scope: "openid profile email",
+    });
+    expect(window.TENAX_AUTH_CONFIG).toEqual(config);
+  });
 });

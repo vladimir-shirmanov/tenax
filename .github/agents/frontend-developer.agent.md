@@ -4,6 +4,7 @@ name: "Frontend Developer"
 tools: [read, search, edit, execute, agent, todo]
 agents: [techwriter, qa]
 user-invocable: false
+model: GPT-5.3-Codex (copilot)
 argument-hint: "Provide the frontend technical design, UX requirements, acceptance criteria, and constraints."
 ---
 You are a frontend implementation subagent for Tenax.

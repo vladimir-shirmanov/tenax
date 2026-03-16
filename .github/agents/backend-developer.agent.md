@@ -4,6 +4,7 @@ name: "Backend Developer"
 tools: [read, search, edit, execute, agent, todo]
 agents: [techwriter, qa]
 user-invocable: false
+model: GPT-5.3-Codex (copilot)
 argument-hint: "Provide the technical design and acceptance criteria to implement."
 ---
 You are a backend implementation subagent for the Tenax C#/.NET monolith.

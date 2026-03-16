@@ -11,6 +11,7 @@ export type TenaxAuthConfig = {
 export type TenaxAuthViteEnv = {
   VITE_TENAX_AUTH_AUTHORITY?: string;
   VITE_TENAX_AUTH_CLIENT_ID?: string;
+  VITE_TENAX_AUTH_FRONTEND_ORIGIN?: string;
   VITE_TENAX_AUTH_REDIRECT_URI?: string;
   VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI?: string;
   VITE_TENAX_AUTH_AUDIENCE?: string;
@@ -38,6 +39,15 @@ const normalizeValue = (value: unknown) => {
 
 const normalizeAuthority = (authority: string) => authority.replace(/\/$/, "");
 
+const normalizeRedirectUri = (value: string) => {
+  try {
+    const origin = new URL(value).origin;
+    return `${origin}/`;
+  } catch {
+    return value;
+  }
+};
+
 const normalizeAuthConfig = (config: Partial<TenaxAuthConfig> | undefined | null) => {
   const authority = normalizeValue(config?.authority);
   const clientId = normalizeValue(config?.clientId);
@@ -63,15 +73,22 @@ const normalizeAuthConfig = (config: Partial<TenaxAuthConfig> | undefined | null
   } satisfies TenaxAuthConfig;
 };
 
-const mapViteEnvToAuthConfig = (env: TenaxAuthViteEnv): Partial<TenaxAuthConfig> => ({
-  authority: env.VITE_TENAX_AUTH_AUTHORITY,
-  clientId: env.VITE_TENAX_AUTH_CLIENT_ID,
-  redirectUri: env.VITE_TENAX_AUTH_REDIRECT_URI,
-  postLogoutRedirectUri: env.VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI,
-  audience: env.VITE_TENAX_AUTH_AUDIENCE,
-  defaultDeckId: env.VITE_TENAX_AUTH_DEFAULT_DECK_ID,
-  scope: env.VITE_TENAX_AUTH_SCOPE,
-});
+const mapViteEnvToAuthConfig = (env: TenaxAuthViteEnv): Partial<TenaxAuthConfig> => {
+  const explicitRedirectUri = normalizeValue(env.VITE_TENAX_AUTH_REDIRECT_URI);
+  const frontendOrigin = normalizeValue(env.VITE_TENAX_AUTH_FRONTEND_ORIGIN);
+  const derivedRedirectUri = frontendOrigin ? normalizeRedirectUri(frontendOrigin) : undefined;
+  const redirectUri = explicitRedirectUri ?? derivedRedirectUri;
+
+  return {
+    authority: env.VITE_TENAX_AUTH_AUTHORITY,
+    clientId: env.VITE_TENAX_AUTH_CLIENT_ID,
+    redirectUri,
+    postLogoutRedirectUri: env.VITE_TENAX_AUTH_POST_LOGOUT_REDIRECT_URI,
+    audience: env.VITE_TENAX_AUTH_AUDIENCE,
+    defaultDeckId: env.VITE_TENAX_AUTH_DEFAULT_DECK_ID,
+    scope: env.VITE_TENAX_AUTH_SCOPE,
+  };
+};
 
 export const readBrowserAuthConfig = () => {
   if (typeof window === "undefined") {

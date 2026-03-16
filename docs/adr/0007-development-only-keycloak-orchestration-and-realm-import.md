@@ -43,7 +43,7 @@
 - Required development realm alignment:
   - The imported realm includes a public `tenax-spa` OpenID Connect client for SPA Authorization Code + PKCE login.
   - The client enables standard flow, disables implicit flow and service accounts, and carries an audience mapper for `tenax-web-api`.
-  - Allowed redirect URIs and web origins include both `http://127.0.0.1:5173` and `http://localhost:5173` so the AppHost default and common manual local overrides both work.
+  - Allowed redirect URIs and web origins include loopback-only wildcard port patterns for both `localhost` and `127.0.0.1` so Aspire-assigned dynamic local ports are accepted without manual realm edits.
 - Explicit boundary rule:
   - AppHost owns container orchestration, import mounting, and development-time env projection.
   - Tenax.Web continues to consume generic JWT bearer configuration keys only; no direct dependency on Keycloak SDKs is introduced.

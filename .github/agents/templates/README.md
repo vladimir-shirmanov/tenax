@@ -9,6 +9,7 @@ This folder contains reusable templates for the Tenax multi-agent delivery workf
 - `handoff-contract.md`: required cross-agent handoff schema.
 - `issue-task-report-template.md`: required issue/report schema from QA and code-review.
 - `frontend-qa-handoff-extension.md`: required visual/accessibility/route-state QA payload when frontend scope exists.
+- `design-handoff-batch-template.md`: required batch template for Design Handoff website design artifacts.
 
 ## Typical Flow
 1. Invoke Tech Lead Orchestrator with `orchestrator-input-template.md`.

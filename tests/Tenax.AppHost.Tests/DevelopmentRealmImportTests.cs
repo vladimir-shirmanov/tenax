@@ -24,10 +24,15 @@ public class DevelopmentRealmImportTests
         var attributes = spaClient["attributes"]!.AsObject();
         var audienceMapper = GetProtocolMapper(spaClient, "audience-tenax-web-api");
 
-        Assert.Contains("http://127.0.0.1:5173/*", redirectUris);
-        Assert.Contains("http://localhost:5173/*", redirectUris);
-        Assert.Contains(new Uri(FrontendAuthEnvironment.DevelopmentRedirectUri).GetLeftPart(UriPartial.Authority), webOrigins);
-        Assert.Contains("http://localhost:5173", webOrigins);
+        Assert.Contains("http://127.0.0.1:*", redirectUris);
+        Assert.Contains("http://127.0.0.1:*/*", redirectUris);
+        Assert.Contains("http://localhost:*", redirectUris);
+        Assert.Contains("http://localhost:*/*", redirectUris);
+        Assert.DoesNotContain(redirectUris, value => value.Contains("*", StringComparison.Ordinal) && !value.StartsWith("http://127.0.0.1", StringComparison.Ordinal) && !value.StartsWith("http://localhost", StringComparison.Ordinal));
+
+        Assert.Single(webOrigins);
+        Assert.Equal("+", webOrigins[0]);
+
         Assert.Equal("S256", attributes["pkce.code.challenge.method"]!.GetValue<string>());
         Assert.Equal("+", attributes["post.logout.redirect.uris"]!.GetValue<string>());
 

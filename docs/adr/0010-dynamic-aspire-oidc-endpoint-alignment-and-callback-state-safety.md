@@ -1,6 +1,6 @@
 # ADR 0010: Dynamic Aspire OIDC Endpoint Alignment and Callback State Safety
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-03-16
 - Owners: Architecture
 - Related Contracts:
@@ -66,3 +66,9 @@
 - Missing or expired oidc-client-ts state during callback produces the dedicated state-mismatch error contract and leaves session anonymous.
 - No new backend auth-flow endpoints are added.
 - Existing protected API response schemas remain unchanged.
+
+## Implementation Evidence
+- AppHost projects frontend runtime auth values from the frontend endpoint origin selected at runtime in `src/Tenax.AppHost/Program.cs`.
+- Frontend runtime bootstrap derives redirect URI from `VITE_TENAX_AUTH_FRONTEND_ORIGIN` when explicit redirect URI is not provided in `src/Tenax.Web/frontend/src/api/auth-config.ts`.
+- Development realm import allows loopback wildcard dynamic-port redirect/web-origin patterns in `src/Tenax.AppHost/keycloak/import/tenax-realm-dev.json`.
+- Frontend callback handling enforces strict sign-in callback signature and maps missing/expired state to `oidc_callback_state_mismatch` in `src/Tenax.Web/frontend/src/api/auth.ts`.
