@@ -10,6 +10,8 @@ namespace Tenax.Application.Tests.Flashcards;
 
 public sealed class FlashcardServiceTests
 {
+    private static readonly DateTimeOffset DeckTimestamp = new(2026, 3, 17, 9, 0, 0, TimeSpan.Zero);
+
     private readonly IDeckRepository _deckRepository = Substitute.For<IDeckRepository>();
     private readonly IFlashcardRepository _flashcardRepository = Substitute.For<IFlashcardRepository>();
     private readonly IValidator<CreateFlashcardInput> _createValidator = new CreateFlashcardInputValidator();
@@ -32,7 +34,7 @@ public sealed class FlashcardServiceTests
     public async Task CreateAsync_ShouldReturnForbidden_WhenUserDoesNotOwnDeck()
     {
         var service = CreateService();
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_other"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_other"));
 
         var result = await service.CreateAsync(new CreateFlashcardInput("deck_owned", "hola", "hello", null, "usr_42"), CancellationToken.None);
 
@@ -44,7 +46,7 @@ public sealed class FlashcardServiceTests
     public async Task CreateAsync_ShouldReturnCreatedFlashcard_WhenRequestValid()
     {
         var service = CreateService();
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_42"));
 
         var result = await service.CreateAsync(new CreateFlashcardInput("deck_owned", "hola", "hello", null, "usr_42"), CancellationToken.None);
 
@@ -73,7 +75,7 @@ public sealed class FlashcardServiceTests
     public async Task ListAsync_ShouldReturnForbidden_WhenUserDoesNotOwnDeck()
     {
         var service = CreateService();
-        _deckRepository.GetByIdAsync("deck_forbidden", Arg.Any<CancellationToken>()).Returns(new Deck("deck_forbidden", "usr_other"));
+        _deckRepository.GetByIdAsync("deck_forbidden", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_forbidden", "usr_other"));
 
         var result = await service.ListAsync(new ListFlashcardsInput("deck_forbidden", 1, 50, "usr_42"), CancellationToken.None);
 
@@ -100,7 +102,7 @@ public sealed class FlashcardServiceTests
         var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_other"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_other"));
 
         var result = await service.GetDetailAsync(new GetFlashcardDetailInput("deck_owned", "fc_12345678", "usr_42"), CancellationToken.None);
 
@@ -128,7 +130,7 @@ public sealed class FlashcardServiceTests
         var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_42"));
         _flashcardRepository
             .UpdateAsync(Arg.Any<Flashcard>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(true);
@@ -160,7 +162,7 @@ public sealed class FlashcardServiceTests
         var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_42"));
         _flashcardRepository
             .DeleteAsync("deck_owned", "fc_12345678", flashcard.UpdatedAtUtc, Arg.Any<CancellationToken>())
             .Returns(true);
@@ -182,7 +184,7 @@ public sealed class FlashcardServiceTests
         var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_42"));
         _flashcardRepository
             .UpdateAsync(Arg.Any<Flashcard>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(false);
@@ -200,7 +202,7 @@ public sealed class FlashcardServiceTests
         var flashcard = CreateFlashcard("deck_owned", "fc_12345678", "hola", "hello");
 
         _flashcardRepository.GetByIdAsync("deck_owned", "fc_12345678", Arg.Any<CancellationToken>()).Returns(flashcard);
-        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(new Deck("deck_owned", "usr_42"));
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_42"));
         _flashcardRepository
             .DeleteAsync("deck_owned", "fc_12345678", flashcard.UpdatedAtUtc, Arg.Any<CancellationToken>())
             .Returns(false);
@@ -238,6 +240,19 @@ public sealed class FlashcardServiceTests
             now,
             "usr_42",
             "usr_42");
+    }
+
+    private static Deck CreateDeck(string id, string ownerUserId)
+    {
+        return new Deck(
+            id,
+            "Deck",
+            null,
+            DeckTimestamp,
+            DeckTimestamp,
+            ownerUserId,
+            ownerUserId,
+            ownerUserId);
     }
 
     private FlashcardService CreateService()

@@ -6,6 +6,7 @@ using Tenax.Infrastructure.Persistence;
 using Tenax.ServiceDefaults;
 using Tenax.Web.Authentication;
 using Tenax.Web.Errors;
+using Tenax.Web.Features.Decks;
 using Tenax.Web.Features.Flashcards;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +33,7 @@ app.MapTenaxDefaultEndpoints();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapDecksEndpoints();
 app.MapFlashcardsEndpoints();
 app.MapGet("/", () => "Tenax API");
 

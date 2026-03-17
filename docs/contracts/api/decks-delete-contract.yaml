@@ -1,0 +1,121 @@
+contract_version: 1
+feature: "deck-management"
+endpoint:
+  method: "DELETE"
+  path: "/api/decks/{deckId}"
+  owner: "Backend Developer"
+
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "200 delete response is returned only after transactional commit succeeds."
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["deleted", "id", "deletedAtUtc"]
+      properties:
+        deleted: { type: boolean }
+        id: { type: string }
+        deletedAtUtc: { type: string, format: date-time }
+    example:
+      deleted: true
+      id: "deck_123"
+      deletedAtUtc: "2026-03-17T11:05:00Z"
+
+  errors:
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-870d6d79602840a49e0111fa8492ac30-a58a33362b43b2c2-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to delete this deck"
+        traceId: "00-7f35e4521f5d4882a3abdd9d36479e16-257f03945d85acbf-01"
+
+    - status: 404
+      code: "deck_not_found"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "deck_not_found"
+        message: "Deck not found"
+        traceId: "00-18bcf8f508294ed2b8ef0fdf6e0eba7f-32867af13ddf0834-01"
+
+    - status: 409
+      code: "concurrency_conflict"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "concurrency_conflict"
+        message: "Deck changed during delete operation. Refresh and retry."
+        traceId: "00-3b19d550cc9341b794dc2a5bc8f7d04f-6baf4d1465f83c87-01"
+
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-f3bcf8e2301f4984a0e154f66fc429e5-f0b9ad1db4a94e0a-01"
+
+frontend_contract_notes:
+  query_key: "decks.delete(deckId)"
+  cache_policy: "Use optimistic remove from decks.list(*) with rollback on failure. On success, invalidate decks.list(*) and remove decks.detail(deckId) cache entry."
+  route_usage: "routes/decks.tsx (delete action/confirmation flow)"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

@@ -1,0 +1,128 @@
+contract_version: 1
+feature: "deck-management"
+endpoint:
+  method: "POST"
+  path: "/api/decks"
+  owner: "Backend Developer"
+
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "201 response is returned only after transactional commit succeeds."
+
+request:
+  path_params: []
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+  body:
+    required: true
+    content_type: "application/json"
+    schema:
+      type: object
+      required: ["name"]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: ["string", "null"]
+          maxLength: 1000
+
+responses:
+  success:
+    status: 201
+    schema:
+      type: object
+      required:
+        [
+          "id",
+          "name",
+          "description",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "createdByUserId",
+          "updatedByUserId"
+        ]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+        createdByUserId: { type: ["string", "null"] }
+        updatedByUserId: { type: ["string", "null"] }
+    example:
+      id: "deck_123"
+      name: "Spanish Basics"
+      description: "Everyday greetings and introductions"
+      createdAtUtc: "2026-03-17T09:00:00Z"
+      updatedAtUtc: "2026-03-17T09:00:00Z"
+      createdByUserId: "usr_42"
+      updatedByUserId: "usr_42"
+
+  errors:
+    - status: 400
+      code: "validation_error"
+      schema:
+        type: object
+        required: ["code", "message", "traceId", "errors"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+          errors:
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
+      example:
+        code: "validation_error"
+        message: "Request validation failed"
+        traceId: "00-76500e1f3548496c8eaee9f7f2fca74a-37d4be0bc57ca52a-01"
+        errors:
+          name: ["name is required"]
+
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-fc3644f63f244a83b0f7f7137fc6f3b2-4fd2c1cb7c559c17-01"
+
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-f7ad1c3e21384c5db391d5de7f76d6af-b122ca0602c44f7f-01"
+
+frontend_contract_notes:
+  query_key: "decks.create()"
+  cache_policy: "On success, invalidate decks.list(*) and optionally seed decks.detail(deckId) from response for post-create navigation."
+  route_usage: "routes/decks.new.tsx"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

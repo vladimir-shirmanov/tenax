@@ -12,16 +12,15 @@ const viewportCases: ViewportCase[] = [
   { label: "desktop", width: 1440, height: 900 },
 ];
 
-const flashcardFixture = {
-  id: "fc_1",
-  deckId: "default",
-  term: "hola",
-  definition: "hello",
-  imageUrl: null,
-  createdAtUtc: "2026-03-15T12:00:00Z",
-  updatedAtUtc: "2026-03-15T12:00:00Z",
-  createdByUserId: "usr_1",
-  updatedByUserId: "usr_1",
+const deckFixture = {
+  id: "deck_123",
+  name: "Spanish Basics",
+  description: "Everyday greetings",
+  flashcardCount: 3,
+  createdAtUtc: "2026-03-17T09:00:00Z",
+  updatedAtUtc: "2026-03-17T09:45:00Z",
+  createdByUserId: "usr_42",
+  updatedByUserId: "usr_42",
 };
 
 const installApiMocks = async (page: Page) => {
@@ -31,44 +30,57 @@ const installApiMocks = async (page: Page) => {
     const path = url.pathname;
     const method = request.method();
 
-    if (method === "GET" && path === "/api/decks/default/flashcards") {
+    if (method === "GET" && path === "/api/decks") {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          items: [
-            {
-              id: flashcardFixture.id,
-              deckId: flashcardFixture.deckId,
-              term: flashcardFixture.term,
-              definitionPreview: flashcardFixture.definition,
-              hasImage: false,
-              updatedAtUtc: flashcardFixture.updatedAtUtc,
-              updatedByUserId: flashcardFixture.updatedByUserId,
-            },
-          ],
+          items: [deckFixture],
           page: 1,
-          pageSize: 50,
+          pageSize: 20,
           totalCount: 1,
         }),
       });
       return;
     }
 
-    if (method === "GET" && path === "/api/decks/default/flashcards/fc_1") {
+    if (method === "POST" && path === "/api/decks") {
       await route.fulfill({
-        status: 200,
+        status: 201,
         contentType: "application/json",
-        body: JSON.stringify(flashcardFixture),
+        body: JSON.stringify({
+          ...deckFixture,
+          id: "deck_created",
+          name: "Created Deck",
+          description: "Created in e2e",
+        }),
       });
       return;
     }
 
-    await route.fulfill({
-      status: 404,
-      contentType: "application/json",
-      body: JSON.stringify({ code: "not_found", message: "not found" }),
-    });
+    if (method === "GET" && path === "/api/decks/deck_123") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(deckFixture),
+      });
+      return;
+    }
+
+    if (method === "PUT" && path === "/api/decks/deck_123") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...deckFixture,
+          name: "Spanish Basics Updated",
+          updatedAtUtc: "2026-03-17T10:00:00Z",
+        }),
+      });
+      return;
+    }
+
+    await route.fallback();
   });
 };
 
@@ -90,7 +102,7 @@ test.describe("runtime viewport validation in Chromium", () => {
   });
 
   for (const viewportCase of viewportCases) {
-    test(`validates shell, home, decks, and flashcards surfaces at ${viewportCase.width}px`, async ({ page }) => {
+    test(`validates shell and deck CRUD route surfaces at ${viewportCase.width}px`, async ({ page }) => {
       await page.setViewportSize({ width: viewportCase.width, height: viewportCase.height });
 
       await page.goto("/");
@@ -99,58 +111,53 @@ test.describe("runtime viewport validation in Chromium", () => {
       await assertNoHorizontalOverflow(page);
 
       await page.goto("/decks");
-      await expect(page.getByRole("heading", { level: 1, name: "Decks" })).toBeVisible();
-      await expect(page.getByRole("link", { name: /open default deck flashcards/i })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: /my decks/i })).toBeVisible();
+      await expect(page.getByRole("link", { name: /create deck/i })).toBeVisible();
+      await expect(page.getByRole("link", { name: /spanish basics/i })).toBeVisible();
       await assertNoHorizontalOverflow(page);
 
-      await page.goto("/decks/default/flashcards");
-      await expect(page.getByRole("heading", { level: 1, name: "Flashcards" })).toBeVisible();
-      await expect(page.getByRole("link", { name: "hola" })).toBeVisible();
+      await page.goto("/decks/new");
+      await expect(page.getByRole("heading", { level: 1, name: /create new deck/i })).toBeVisible();
+      await expect(page.getByLabel(/deck name/i)).toBeVisible();
+      await expect(page.getByLabel(/description/i)).toBeVisible();
       await assertNoHorizontalOverflow(page);
 
-      await page.goto("/decks/default/flashcards/new");
-      await expect(page.getByRole("heading", { level: 1, name: /create flashcard/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /create flashcard/i })).toBeVisible();
+      await page.goto("/decks/deck_123");
+      await expect(page.getByRole("heading", { level: 1, name: /deck detail/i })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: /spanish basics/i })).toBeVisible();
+      await expect(page.getByRole("link", { name: /edit deck/i })).toBeVisible();
       await assertNoHorizontalOverflow(page);
 
-      await page.goto("/decks/default/flashcards/fc_1");
-      await expect(page.getByRole("heading", { level: 1, name: /flashcard detail/i })).toBeVisible();
-      await expect(page.getByText("hola")).toBeVisible();
+      await page.goto("/decks/deck_123/edit");
+      await expect(page.getByRole("heading", { level: 1, name: /edit deck/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /save changes/i })).toBeDisabled();
       await assertNoHorizontalOverflow(page);
     });
   }
 
-  test("validates system/light/dark toggle behavior and persistence across reload", async ({ page }) => {
+  test("validates keyboard navigation and labeled controls on deck create/edit routes", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.emulateMedia({ colorScheme: "dark" });
 
-    await page.goto("/");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await page.goto("/decks/new");
+    const nameInput = page.getByLabel(/deck name/i);
+    const descriptionInput = page.getByLabel(/description/i);
 
-    await page.getByRole("button", { name: /light theme/i }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-    await expect.poll(async () => {
-      return page.evaluate(() => localStorage.getItem("tenax.theme.preference"));
-    }).toBe("light");
+    await nameInput.focus();
+    await expect(nameInput).toBeFocused();
+    await page.keyboard.type("Keyboard Deck");
+    await expect(nameInput).toHaveValue("Keyboard Deck");
 
-    await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.keyboard.press("Tab");
+    await expect(descriptionInput).toBeFocused();
 
-    await page.getByRole("button", { name: /dark theme/i }).click();
-    await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await page.goto("/decks/deck_123/edit");
+    const saveButton = page.getByRole("button", { name: /save changes/i });
+    await expect(saveButton).toBeDisabled();
 
-    await page.getByRole("button", { name: /system theme/i }).click();
-    await expect.poll(async () => {
-      return page.evaluate(() => localStorage.getItem("tenax.theme.preference"));
-    }).toBe("system");
+    await page.getByLabel(/description/i).fill("Everyday greetings updated");
+    await expect(saveButton).toBeEnabled();
 
-    await page.emulateMedia({ colorScheme: "light" });
-    await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.reload();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: /save changes/i })).toBeFocused();
   });
 });

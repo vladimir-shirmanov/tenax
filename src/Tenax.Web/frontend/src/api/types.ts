@@ -49,6 +49,46 @@ export type FlashcardDeleteResponse = {
   deletedAtUtc: string;
 };
 
+export type DeckListItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  flashcardCount: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  createdByUserId: string | null;
+  updatedByUserId: string | null;
+};
+
+export type DeckListResponse = {
+  items: DeckListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type DeckDetail = {
+  id: string;
+  name: string;
+  description: string | null;
+  flashcardCount?: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  createdByUserId: string | null;
+  updatedByUserId: string | null;
+};
+
+export type DeckWriteRequest = {
+  name: string;
+  description: string | null;
+};
+
+export type DeckDeleteResponse = {
+  deleted: boolean;
+  id: string;
+  deletedAtUtc: string;
+};
+
 export type AuthSessionUser = {
   subject: string;
   displayName: string;

@@ -319,6 +319,23 @@ body {
   padding: 0;
 }
 
+.deck-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.deck-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.9rem;
+  padding: 0.9rem;
+  background: var(--surface-elevated);
+  overflow-wrap: anywhere;
+}
+
 .flat-list__item {
   padding: 1rem 0;
   border-top: 1px solid var(--border-subtle);
@@ -458,11 +475,28 @@ textarea:focus-visible {
   }
 }
 
+@media (min-width: 48rem) {
+  .deck-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 80rem) {
+  .deck-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .primary-nav__link,
   .theme-toggle__button,
-  .button {
+  .button,
+  .deck-card {
     transition: transform 120ms ease, background-color 160ms ease, color 160ms ease;
+  }
+
+  .deck-card:hover {
+    transform: translateY(-1px);
   }
 
   .button:active,

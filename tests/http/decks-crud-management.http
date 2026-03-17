@@ -1,0 +1,162 @@
+@baseUrl = http://localhost:5062
+@token = user_qa
+@missingDeckId = deck_missing
+@forbiddenDeckId = deck_forbidden
+
+### Health - liveness (200)
+GET {{baseUrl}}/health
+
+?? status == 200
+?? duration < 5000
+
+### Health - readiness (200)
+GET {{baseUrl}}/health/ready
+
+?? status == 200
+?? duration < 5000
+
+### List decks - success (200)
+GET {{baseUrl}}/api/decks?page=1&pageSize=20
+Authorization: Bearer {{token}}
+
+?? status == 200
+?? header content-type includes json
+?? body items isArray
+?? body page == 1
+?? body pageSize == 20
+?? body totalCount >= 1
+?? js response.parsedBody.items.length >= 1
+?? js response.parsedBody.items[0].id != null
+?? js response.parsedBody.items[0].name != null
+?? js response.parsedBody.items[0].flashcardCount >= 0
+
+### List decks - invalid pagination (400)
+GET {{baseUrl}}/api/decks?page=0&pageSize=101
+Authorization: Bearer {{token}}
+
+?? status == 400
+?? header content-type includes json
+?? body code == validation_error
+?? body message == Request validation failed
+?? js response.parsedBody.errors.page.length >= 1
+?? js response.parsedBody.errors.pageSize.length >= 1
+
+### Create deck - success (201)
+POST {{baseUrl}}/api/decks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Spanish Basics QA",
+  "description": "Contract validation deck"
+}
+
+?? status == 201
+?? header content-type includes json
+?? header location includes /api/decks/
+?? body id exists
+?? body name == Spanish Basics QA
+?? body description == Contract validation deck
+?? body createdAtUtc exists
+?? body updatedAtUtc exists
+?? body createdByUserId exists
+?? body updatedByUserId exists
+
+{{
+  exports.createdDeckId = response.parsedBody.id;
+}}
+
+### Create deck - validation error (400)
+POST {{baseUrl}}/api/decks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "description": "invalid"
+}
+
+?? status == 400
+?? header content-type includes json
+?? body code == validation_error
+?? body message == Request validation failed
+?? js response.parsedBody.errors.name.length >= 1
+
+### Get deck detail - success (200)
+GET {{baseUrl}}/api/decks/{{createdDeckId}}
+Authorization: Bearer {{token}}
+
+?? status == 200
+?? header content-type includes json
+?? body id == {{createdDeckId}}
+?? body name == Spanish Basics QA
+?? body createdAtUtc exists
+?? body updatedAtUtc exists
+
+### Get deck detail - forbidden (403)
+GET {{baseUrl}}/api/decks/{{forbiddenDeckId}}
+Authorization: Bearer {{token}}
+
+?? status == 403
+?? header content-type includes json
+?? body code == forbidden
+
+### Get deck detail - not found (404)
+GET {{baseUrl}}/api/decks/{{missingDeckId}}
+Authorization: Bearer {{token}}
+
+?? status == 404
+?? header content-type includes json
+?? body code == deck_not_found
+?? body message == Deck not found
+
+### Update deck - success (200)
+PUT {{baseUrl}}/api/decks/{{createdDeckId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Spanish Basics QA Updated",
+  "description": "Updated description"
+}
+
+?? status == 200
+?? header content-type includes json
+?? body id == {{createdDeckId}}
+?? body name == Spanish Basics QA Updated
+?? body description == Updated description
+?? body updatedAtUtc exists
+
+### Update deck - validation error (400)
+PUT {{baseUrl}}/api/decks/{{createdDeckId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "description": "invalid"
+}
+
+?? status == 400
+?? header content-type includes json
+?? body code == validation_error
+?? body message == Request validation failed
+?? js response.parsedBody.errors.name.length >= 1
+
+### Delete deck - success (200)
+DELETE {{baseUrl}}/api/decks/{{createdDeckId}}
+Authorization: Bearer {{token}}
+
+?? status == 200
+?? header content-type includes json
+?? body deleted isTrue
+?? body id == {{createdDeckId}}
+?? body deletedAtUtc exists
+
+### Unauthorized request sample (401)
+GET {{baseUrl}}/api/decks?page=1&pageSize=20
+X-Test-Auth: off
+
+?? status == 401
+?? header content-type includes json
+?? body code == unauthorized

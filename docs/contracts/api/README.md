@@ -103,9 +103,42 @@ Operational reference:
 	- Present across CRUD contracts as a recoverable service-unavailable state.
 	- Frontend contract notes require non-destructive retry guidance and avoidance of unsafe optimistic persistence assumptions.
 
+## Deck Management Coverage (Implemented)
+
+Deck CRUD is implemented against these contracts:
+
+- `decks-list-contract.yaml`
+	- API endpoint: `GET /api/decks?page=&pageSize=`
+	- Frontend route usage: `routes/decks.tsx`
+- `decks-create-contract.yaml`
+	- API endpoint: `POST /api/decks`
+	- Frontend route usage: `routes/decks.new.tsx`
+- `decks-get-detail-contract.yaml`
+	- API endpoint: `GET /api/decks/{deckId}`
+	- Frontend route usage: `routes/decks.$deckId.tsx`
+- `decks-update-contract.yaml`
+	- API endpoint: `PUT /api/decks/{deckId}`
+	- Frontend route usage: `routes/decks.$deckId.edit.tsx`
+- `decks-delete-contract.yaml`
+	- API endpoint: `DELETE /api/decks/{deckId}`
+	- Frontend route usage: `routes/decks.tsx` (delete confirmation flow)
+
+Compatibility and change-control policy:
+
+- Response contracts are additive-only (`compatibility_rules.additive_only: true`).
+- Any breaking response shape or semantic change requires ADR update before implementation.
+
+Implemented behavior notes:
+
+- Backend exposes authenticated `/api/decks` CRUD endpoints and enforces owner-scoped list/detail/update/delete semantics.
+- List defaults are `page=1` and `pageSize=20` when query parameters are omitted.
+- Frontend deck routes are implemented for list/create/detail/edit with delete confirmation from the list surface.
+- Frontend query/mutation cache behavior follows contract notes: list/detail query keys, optimistic list delete rollback, and mutation-driven invalidation.
+
 ### Test Evidence (High-Level)
 
 - See stage handoff payloads for authoritative test command outcomes.
+- Deck CRUD backend and frontend evidence is recorded in prior stage handoffs (no additional test rerun in docs stage).
 - For ADR 0006 documentation updates, this directory records contract and behavior documentation only.
 
 ### Test Strategy and Prerequisites (Current)

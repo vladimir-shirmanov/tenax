@@ -1,0 +1,255 @@
+{
+  "info": {
+    "name": "Tenax Deck CRUD Management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Contract-focused CRUD verification for deck management endpoints."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5062" },
+    { "key": "token", "value": "user_qa" },
+    { "key": "forbiddenDeckId", "value": "deck_forbidden" },
+    { "key": "missingDeckId", "value": "deck_missing" },
+    { "key": "createdDeckId", "value": "deck_replace_me" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness - /health (200)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Readiness - /health/ready (200)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deck CRUD",
+      "item": [
+        {
+          "name": "List decks - 200",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test('pagination shape present', function () {",
+                  "  pm.expect(json).to.have.property('items');",
+                  "  pm.expect(json).to.have.property('page');",
+                  "  pm.expect(json).to.have.property('pageSize');",
+                  "  pm.expect(json).to.have.property('totalCount');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create deck - 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Spanish Basics QA\",\n  \"description\": \"Contract validation deck\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', function () { pm.response.to.have.status(201); });",
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('createdDeckId', json.id);",
+                  "pm.test('response contains auditable fields', function () {",
+                  "  pm.expect(json).to.have.property('createdAtUtc');",
+                  "  pm.expect(json).to.have.property('updatedAtUtc');",
+                  "  pm.expect(json).to.have.property('createdByUserId');",
+                  "  pm.expect(json).to.have.property('updatedByUserId');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get deck detail - 200",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{createdDeckId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{createdDeckId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('id matches created deck', function () {",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('createdDeckId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update deck - 200",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{createdDeckId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{createdDeckId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Spanish Basics QA Updated\",\n  \"description\": \"Updated description\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('name is updated', function () { pm.expect(pm.response.json().name).to.eql('Spanish Basics QA Updated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete deck - 200",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{createdDeckId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{createdDeckId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('deleted is true', function () { pm.expect(pm.response.json().deleted).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get forbidden deck detail - 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decks/{{forbiddenDeckId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "decks", "{{forbiddenDeckId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('code is forbidden', function () { pm.expect(pm.response.json().code).to.eql('forbidden'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

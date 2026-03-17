@@ -1,0 +1,173 @@
+contract_version: 1
+feature: "deck-management"
+endpoint:
+  method: "PUT"
+  path: "/api/decks/{deckId}"
+  owner: "Backend Developer"
+
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "200 response is returned only after transactional commit succeeds."
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+  body:
+    required: true
+    content_type: "application/json"
+    schema:
+      type: object
+      required: ["name"]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: ["string", "null"]
+          maxLength: 1000
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required:
+        [
+          "id",
+          "name",
+          "description",
+          "createdAtUtc",
+          "updatedAtUtc",
+          "createdByUserId",
+          "updatedByUserId"
+        ]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+        createdByUserId: { type: ["string", "null"] }
+        updatedByUserId: { type: ["string", "null"] }
+    example:
+      id: "deck_123"
+      name: "Spanish Basics A1"
+      description: "Everyday greetings, introductions, and polite responses"
+      createdAtUtc: "2026-03-17T09:00:00Z"
+      updatedAtUtc: "2026-03-17T10:15:00Z"
+      createdByUserId: "usr_42"
+      updatedByUserId: "usr_42"
+
+  errors:
+    - status: 400
+      code: "validation_error"
+      schema:
+        type: object
+        required: ["code", "message", "traceId", "errors"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+          errors:
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
+      example:
+        code: "validation_error"
+        message: "Request validation failed"
+        traceId: "00-df26c208789f4ed88b6fa44c94f4f6a2-1f3f8a2b62cd2f80-01"
+        errors:
+          name: ["name must be between 1 and 120 characters"]
+
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-92025f9a1b2442f7bcf1b7debe0e40ca-0fbeb0ecf605ae19-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to modify this deck"
+        traceId: "00-90e4ddfbda044df8a35ed2d2ed321c5f-ac903e02f4d16a4f-01"
+
+    - status: 404
+      code: "deck_not_found"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "deck_not_found"
+        message: "Deck not found"
+        traceId: "00-423850770b1c4e10b80f5a8ec2fa2a16-6148cc2ebc3c5001-01"
+
+    - status: 409
+      code: "concurrency_conflict"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "concurrency_conflict"
+        message: "Deck was modified by another operation. Reload and retry."
+        traceId: "00-11d8cbe7f3b1467e97a8989ec8bcbaea-e5f50df1593e55a8-01"
+
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message", "traceId"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-a48905353db442c38e1ccf06a238f453-c56ccf8fc85808a4-01"
+
+frontend_contract_notes:
+  query_key: "decks.update(deckId)"
+  cache_policy: "On success, invalidate decks.list(*) and decks.detail(deckId). On 409 concurrency_conflict, force detail refetch before allowing retry."
+  route_usage: "routes/decks.$deckId.edit.tsx"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"

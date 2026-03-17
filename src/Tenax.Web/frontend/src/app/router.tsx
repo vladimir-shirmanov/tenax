@@ -1,6 +1,9 @@
 import { createBrowserRouter } from "react-router-dom";
 import { HomeRoute } from "../routes/home";
 import { DecksRoute } from "../routes/decks";
+import { DeckCreateRoute } from "../routes/decks.new";
+import { DeckDetailRoute } from "../routes/decks.$deckId";
+import { DeckEditRoute } from "../routes/decks.$deckId.edit";
 import { FlashcardListRoute } from "../routes/decks.$deckId.flashcards.index";
 import { FlashcardCreateRoute } from "../routes/decks.$deckId.flashcards.new";
 import { FlashcardDetailRoute } from "../routes/decks.$deckId.flashcards.$flashcardId";
@@ -19,6 +22,18 @@ export const router = createBrowserRouter([
       {
         path: "decks",
         element: <DecksRoute />,
+      },
+      {
+        path: "decks/new",
+        element: <DeckCreateRoute />,
+      },
+      {
+        path: "decks/:deckId",
+        element: <DeckDetailRoute />,
+      },
+      {
+        path: "decks/:deckId/edit",
+        element: <DeckEditRoute />,
       },
       {
         path: "decks/:deckId/flashcards",
