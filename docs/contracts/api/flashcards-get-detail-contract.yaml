@@ -1,5 +1,5 @@
 contract_version: 1
-feature: "flashcard-authoring-management"
+feature: "flashcard-study-and-authoring-detail"
 endpoint:
   method: "GET"
   path: "/api/decks/{deckId}/flashcards/{flashcardId}"
@@ -12,6 +12,7 @@ persistence_profile:
   contract_notes:
     - "Response schema remains unchanged during storage-provider migration."
     - "Detail endpoint returns the latest committed row state for the requested id."
+    - "Study interaction uses existing term/definition/imageUrl fields; no study-specific backend payload is introduced."
 
 request:
   path_params:
@@ -31,6 +32,10 @@ request:
 responses:
   success:
     status: 200
+    guarantees:
+      - "term and definition are always present as non-null strings."
+      - "imageUrl can be null; frontend must render front side without image when null."
+      - "No card-side state is persisted or returned by this endpoint."
     schema:
       type: object
       required:
@@ -127,7 +132,15 @@ frontend_contract_notes:
   query_key: "flashcards.detail(deckId, flashcardId)"
   cache_policy: "staleTime=30000, retry=1. Prime from list item only for term/preview fields; fetch full detail on route load. On 503 persistence_unavailable, retain previous data if present and expose refetch action."
   route_usage: "routes/decks.$deckId.flashcards.$flashcardId.tsx"
+  interaction_notes:
+    - "Front side content: term plus optional imageUrl."
+    - "Back side content: definition revealed by explicit user action."
+    - "Interaction surface must be keyboard operable with Enter/Space and visible focus state."
+    - "When prefers-reduced-motion is enabled, use non-spatial state swap instead of flip animation."
+    - "Do not require additional API calls to flip between front and back states."
 
 compatibility_rules:
   additive_only: true
   breaking_change_process: "requires ADR update"
+  non_breaking_clarifications:
+    - "This contract update is documentation-only for study interaction behavior; response schema and status codes are unchanged."

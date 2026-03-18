@@ -105,6 +105,17 @@ Operational reference:
 - `docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md`
 	- Maintainer runbook for backend JWT authority/audience configuration and frontend homepage/auth client behavior under ADR 0006.
 
+## Flashcard Study Interaction Coverage (Planned Contract-First)
+
+- `flashcards-get-detail-contract.yaml`
+	- API endpoint: `GET /api/decks/{deckId}/flashcards/{flashcardId}`
+	- Contract posture: strict response schema and status codes are unchanged; study behavior is frontend interaction scope over existing `term`, `definition`, and optional `imageUrl` fields.
+	- Frontend contract notes now define:
+		- Front-side term plus optional image rendering.
+		- Back-side definition reveal interaction.
+		- Keyboard parity (`Enter`/`Space`) and reduced-motion-compatible state transition behavior.
+	- Related ADR: `docs/adr/0015-flashcard-study-flip-interaction-contract-first-boundary.md`.
+
 ### Contract-First Alignment Notes
 
 - Backend and frontend tracks continue parallel delivery using ADR-backed contract files as source of truth.
