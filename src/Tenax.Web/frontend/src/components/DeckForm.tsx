@@ -1,9 +1,17 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 
 type DeckFormValues = {
   name: string;
   description: string;
 };
+
+const deckFormSchema = z.object({
+  name: z.string().trim().min(1, "A deck must have a name to get started."),
+  description: z.string(),
+});
 
 type DeckFormProps = {
   initialValues?: Partial<DeckFormValues>;
@@ -30,13 +38,71 @@ export const DeckForm = ({
   disableIfUnchanged,
   onSubmit,
 }: DeckFormProps) => {
-  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const initialName = initialValues?.name ?? "";
   const initialDescription = initialValues?.description ?? "";
-  const [values, setValues] = useState<DeckFormValues>({
-    name: initialName,
-    description: initialDescription,
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    setFocus,
+    formState: { errors, dirtyFields, touchedFields, isDirty, isValid },
+  } = useForm<DeckFormValues>({
+    resolver: zodResolver(deckFormSchema),
+    mode: "all",
+    defaultValues: {
+      name: initialName,
+      description: initialDescription,
+    },
   });
+
+  const values = useWatch({
+    control,
+    defaultValue: {
+      name: initialName,
+      description: initialDescription,
+    },
+  });
+
+  const normalizedValues: DeckFormValues = {
+    name: values?.name ?? "",
+    description: values?.description ?? "",
+  };
+
+  const submitDisabled =
+    isSubmitting ||
+    !isValid ||
+    (disableIfUnchanged ? !isDirty : false);
+
+  const showNameError = Boolean(dirtyFields.name || touchedFields.name);
+  const showDescriptionError = Boolean(dirtyFields.description || touchedFields.description);
+
+  const visibleNameError = showNameError
+    ? fieldErrors?.name ?? errors.name?.message
+    : undefined;
+  const visibleDescriptionError = showDescriptionError
+    ? fieldErrors?.description
+    : undefined;
+
+  const nameDescribedBy = visibleNameError
+    ? "deck-name-help deck-name-error"
+    : "deck-name-help";
+  const descriptionDescribedBy = visibleDescriptionError
+    ? "deck-description-help deck-description-error"
+    : "deck-description-help";
+
+  const submitValues = (submittedValues: DeckFormValues) => {
+    if (submitDisabled) {
+      return;
+    }
+
+    onSubmit({
+      name: submittedValues.name.trim(),
+      description: submittedValues.description.trim()
+        ? submittedValues.description.trim()
+        : null,
+    });
+  };
 
   useEffect(() => {
     const mediaQuery =
@@ -48,43 +114,11 @@ export const DeckForm = ({
       return;
     }
 
-    nameInputRef.current?.focus();
-  }, []);
-
-  const clientFieldErrors = useMemo(() => {
-    const errors: Record<string, string | undefined> = {};
-
-    if (values.name.trim().length === 0) {
-      errors.name = "A deck must have a name to get started.";
-    }
-
-    return errors;
-  }, [values.name]);
-
-  const isDirty =
-    values.name !== initialName ||
-    values.description !== initialDescription;
-
-  const submitDisabled =
-    isSubmitting ||
-    Boolean(clientFieldErrors.name) ||
-    (disableIfUnchanged ? !isDirty : false);
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (submitDisabled) {
-      return;
-    }
-
-    onSubmit({
-      name: values.name.trim(),
-      description: values.description.trim() ? values.description.trim() : null,
-    });
-  };
+    setFocus("name");
+  }, [setFocus]);
 
   return (
-    <form className="form-grid" onSubmit={handleSubmit} noValidate>
+    <form className="form-grid" onSubmit={handleSubmit(submitValues)} noValidate>
       {formError ? (
         <div role="alert" className="alert" aria-live="polite">
           {formError}
@@ -96,25 +130,24 @@ export const DeckForm = ({
           Deck Name
         </label>
         <input
-          ref={nameInputRef}
           id="deckName"
-          name="deckName"
-          value={values.name}
-          onChange={(event) => setValues((prev) => ({ ...prev, name: event.target.value }))}
           className="field-input"
-          aria-invalid={Boolean(fieldErrors?.name || clientFieldErrors.name)}
-          aria-describedby="deck-name-help deck-name-error"
+          aria-invalid={Boolean(visibleNameError)}
+          aria-describedby={nameDescribedBy}
           maxLength={MAX_NAME_LENGTH}
+          {...register("name")}
         />
         <p id="deck-name-help" className="flat-list__meta" style={{ marginTop: "0.35rem" }}>
           e.g., Spanish Travel Phrases, JLPT N5 Vocabulary
         </p>
         <p className="flat-list__meta" style={{ marginTop: "0.2rem" }}>
-          {values.name.length}/{MAX_NAME_LENGTH}
+          {normalizedValues.name.length}/{MAX_NAME_LENGTH}
         </p>
-        <p id="deck-name-error" className="field-error" aria-live="polite">
-          {fieldErrors?.name ?? clientFieldErrors.name ?? ""}
-        </p>
+        {visibleNameError ? (
+          <p id="deck-name-error" className="field-error" aria-live="polite">
+            {visibleNameError}
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -123,23 +156,23 @@ export const DeckForm = ({
         </label>
         <textarea
           id="deckDescription"
-          name="deckDescription"
-          value={values.description}
-          onChange={(event) => setValues((prev) => ({ ...prev, description: event.target.value }))}
           className="field-input field-input--textarea"
-          aria-invalid={Boolean(fieldErrors?.description)}
-          aria-describedby="deck-description-help deck-description-error"
+          aria-invalid={Boolean(visibleDescriptionError)}
+          aria-describedby={descriptionDescribedBy}
           maxLength={MAX_DESCRIPTION_LENGTH}
+          {...register("description")}
         />
         <p id="deck-description-help" className="flat-list__meta" style={{ marginTop: "0.35rem" }}>
           Add context on what you are learning in this deck.
         </p>
         <p className="flat-list__meta" style={{ marginTop: "0.2rem" }}>
-          {values.description.length}/{MAX_DESCRIPTION_LENGTH}
+          {normalizedValues.description.length}/{MAX_DESCRIPTION_LENGTH}
         </p>
-        <p id="deck-description-error" className="field-error" aria-live="polite">
-          {fieldErrors?.description ?? ""}
-        </p>
+        {visibleDescriptionError ? (
+          <p id="deck-description-error" className="field-error" aria-live="polite">
+            {visibleDescriptionError}
+          </p>
+        ) : null}
       </div>
 
       <button type="submit" disabled={submitDisabled} className="button button--primary">

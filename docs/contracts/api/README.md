@@ -80,6 +80,26 @@ Related ADRs:
 - `docs/adr/0006-frontend-pkce-backend-jwt-bearer-boundary.md` (accepted)
 - `docs/adr/0005-oidc-pkce-homepage-auth-session-contract-first.md` (superseded)
 
+## Frontend Form Validation Migration Coverage (Implemented)
+
+The frontend form validation migration is implemented against:
+
+- `frontend-form-validation-no-api-response-changes-contract.yaml`
+	- API endpoint family: `ANY /api/*`
+	- Contract posture: no backend HTTP request/response schema changes.
+	- Implemented frontend behavior:
+		- `DeckForm` and `FlashcardForm` use `react-hook-form` with `zod` and `@hookform/resolvers/zod`.
+		- Field-level error messages are shown only after the corresponding field becomes dirty.
+		- Form submission remains blocked while form state is invalid.
+		- Existing deck and flashcard request payload shapes are preserved.
+	- Related ADR: `docs/adr/0013-frontend-form-validation-zod-and-dirty-field-error-reveal.md`.
+
+Testing expectations for this coverage:
+
+- Keep component tests that verify dirty-gated validation behavior and invalid-submit blocking for:
+	- `src/Tenax.Web/frontend/src/components/DeckForm.test.tsx`
+	- `src/Tenax.Web/frontend/src/components/FlashcardForm.test.tsx`
+
 Operational reference:
 
 - `docs/ways-of-work/runbook/auth-jwt-bearer-frontend-oidc-boundary.md`

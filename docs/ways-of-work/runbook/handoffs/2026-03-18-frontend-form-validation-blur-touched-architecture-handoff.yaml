@@ -1,0 +1,43 @@
+stage: architecture
+scope:
+  summary: "Narrow architecture update for DeckForm and FlashcardForm so invalid field errors become visible after blur even when the field never became dirty."
+  out_of_scope:
+    - "Implementing production frontend code"
+    - "Changing backend endpoints, request payloads, response payloads, or persistence behavior"
+    - "Changing form-validation policy outside DeckForm and FlashcardForm"
+acceptance_criteria:
+  - "DeckForm and FlashcardForm continue using react-hook-form with zod and @hookform/resolvers/zod."
+  - "An invalid required field shows its field-level error after focus-out even if the value never changed and the field never became dirty."
+  - "Dirty-based error reveal still works for invalid fields changed by the user."
+  - "Initial render remains free of field-level validation text before interaction."
+  - "Deck and flashcard API request and response contracts remain unchanged."
+files_changed:
+  - "docs/adr/0013-frontend-form-validation-zod-and-dirty-field-error-reveal.md"
+  - "docs/adr/0014-frontend-form-validation-blur-touched-error-reveal.md"
+  - "docs/contracts/api/frontend-form-validation-no-api-response-changes-contract.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-18-frontend-form-validation-blur-touched-architecture-handoff.yaml"
+test_evidence:
+  targeted:
+    - command: "source review of docs/adr/0013-frontend-form-validation-zod-and-dirty-field-error-reveal.md, docs/contracts/api/frontend-form-validation-no-api-response-changes-contract.yaml, src/Tenax.Web/frontend/src/components/DeckForm.tsx, and src/Tenax.Web/frontend/src/components/FlashcardForm.tsx"
+      outcome: "Completed; architecture artifacts now reflect the implemented stack and the requested blur-visible validation rule without expanding API scope."
+  full_suite:
+    - command: "not run by architecture agent"
+      outcome: "No executable validation performed because this handoff changes docs artifacts only."
+behavioral_impact:
+  api_changes:
+    - "No backend HTTP endpoint, request contract, or response contract changes."
+  data_changes:
+    - "No database, persistence, or migration changes."
+  config_changes:
+    - "No environment or runtime configuration changes."
+  frontend_behavior_changes:
+    - "Field-level validation errors in DeckForm and FlashcardForm become visible when a field is invalid and either dirty or touched after blur."
+    - "Blur without value mutation is now part of the required validation feedback path."
+risks:
+  - "Frontend implementation must preserve onBlur propagation through registered inputs or touched-based visibility will drift from the contract."
+  - "If validation is still evaluated only on change, touched-only blur interactions will not produce the required error state."
+  - "Regression coverage must explicitly include blur-without-change cases to prevent reintroducing the current issue."
+next_agent_expectations:
+  - "Frontend Developer: update DeckForm and FlashcardForm to reveal errors for invalid dirty-or-touched fields while preserving the existing zod resolver stack and payload shaping."
+  - "Frontend Developer: add component tests for blur-triggered invalid-field visibility and verify dirty-path behavior still passes."
+  - "Backend Developer: no implementation work is expected; review only for accidental shared-client or contract drift if touched by adjacent changes."

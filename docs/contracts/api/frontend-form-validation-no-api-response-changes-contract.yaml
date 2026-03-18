@@ -1,0 +1,91 @@
+contract_version: 2
+feature: "frontend-form-validation"
+change_type: "no_api_response_contract_changes"
+endpoint:
+  method: "ANY"
+  path: "/api/*"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers: []
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["contractChange", "justification", "affectedContracts"]
+      properties:
+        contractChange:
+          type: string
+          enum: ["none"]
+        justification:
+          type: string
+        affectedContracts:
+          type: array
+          items:
+            type: string
+    example:
+      contractChange: "none"
+      justification: "Frontend form validation continues using react-hook-form plus zod resolver, while field errors become visible for invalid fields that are dirty or touched on blur; backend endpoint inventory and API response payload shapes remain unchanged."
+      affectedContracts:
+        - "decks-create-contract.yaml"
+        - "decks-update-contract.yaml"
+        - "flashcards-create-contract.yaml"
+        - "flashcards-update-contract.yaml"
+
+  errors:
+    - status: 409
+      code: "contract_violation"
+      schema:
+        type: object
+        required: ["code", "message", "details"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details:
+            type: array
+            items: { type: string }
+      example:
+        code: "contract_violation"
+        message: "Detected API response shape drift during frontend form validation blur/touched visibility update"
+        details:
+          - "Do not modify backend response payloads as part of form validation stack changes"
+          - "Do not introduce form-validation-specific backend endpoints in this scope"
+          - "Update endpoint contracts and ADR before any API response behavior change"
+
+    - status: 503
+      code: "delivery_scope_violation"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+      example:
+        code: "delivery_scope_violation"
+        message: "Frontend form validation delivery expanded into backend/API scope without approved architecture update"
+
+frontend_contract_notes:
+  query_key: "No query-key changes required; preserve existing deck and flashcard keys"
+  cache_policy: "No TanStack Query contract changes; preserve existing fetch and invalidation semantics"
+  route_usage: "Deck and flashcard create/edit route modules continue using existing endpoints and response contracts"
+  scoped_forms:
+    - "DeckForm"
+    - "FlashcardForm"
+  validation_behavior_rules:
+    - "Use zod schemas with @hookform/resolvers zodResolver for form validation"
+    - "Refresh field validation state on blur as well as change so unchanged invalid fields can surface current resolver errors after focus-out"
+    - "Render field-level validation messages when the corresponding field is invalid and either dirty or touched by blur"
+    - "Do not render field-level validation text on initial render before interaction"
+    - "Keep request payload shapes aligned to existing endpoint contracts"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  no_change_guardrails:
+    - "This scope does not add or modify backend HTTP request/response schemas"
+    - "Existing deck and flashcard endpoint contracts remain authoritative"
+    - "Any future server-side validation payload change requires dedicated contract updates"

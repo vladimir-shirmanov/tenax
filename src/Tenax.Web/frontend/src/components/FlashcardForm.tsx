@@ -1,10 +1,18 @@
-import { FormEvent, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 type FlashcardFormValues = {
   term: string;
   definition: string;
   imageUrl: string;
 };
+
+const flashcardFormSchema = z.object({
+  term: z.string().trim().min(1, "Term is required"),
+  definition: z.string().trim().min(1, "Definition is required"),
+  imageUrl: z.string(),
+});
 
 type FlashcardFormProps = {
   initialValues?: Partial<FlashcardFormValues>;
@@ -27,32 +35,36 @@ export const FlashcardForm = ({
   fieldErrors,
   onSubmit,
 }: FlashcardFormProps) => {
-  const [values, setValues] = useState<FlashcardFormValues>({
-    term: initialValues?.term ?? "",
-    definition: initialValues?.definition ?? "",
-    imageUrl: initialValues?.imageUrl ?? "",
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, dirtyFields, touchedFields, isValid },
+  } = useForm<FlashcardFormValues>({
+    resolver: zodResolver(flashcardFormSchema),
+    mode: "all",
+    defaultValues: {
+      term: initialValues?.term ?? "",
+      definition: initialValues?.definition ?? "",
+      imageUrl: initialValues?.imageUrl ?? "",
+    },
   });
 
-  const clientFieldErrors = useMemo(() => {
-    const errors: Record<string, string | undefined> = {};
+  const showTermError = Boolean(dirtyFields.term || touchedFields.term);
+  const showDefinitionError = Boolean(dirtyFields.definition || touchedFields.definition);
+  const showImageUrlError = Boolean(dirtyFields.imageUrl || touchedFields.imageUrl);
 
-    if (values.term.trim().length === 0) {
-      errors.term = "Term is required";
-    }
+  const visibleTermError = showTermError
+    ? fieldErrors?.term ?? errors.term?.message
+    : undefined;
+  const visibleDefinitionError = showDefinitionError
+    ? fieldErrors?.definition ?? errors.definition?.message
+    : undefined;
+  const visibleImageUrlError = showImageUrlError
+    ? fieldErrors?.imageUrl
+    : undefined;
 
-    if (values.definition.trim().length === 0) {
-      errors.definition = "Definition is required";
-    }
-
-    return errors;
-  }, [values.term, values.definition]);
-
-  const submitDisabled =
-    isSubmitting || Boolean(clientFieldErrors.term || clientFieldErrors.definition);
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const submitDisabled = isSubmitting || !isValid;
+  const submitValues = (values: FlashcardFormValues) => {
     if (submitDisabled) {
       return;
     }
@@ -65,7 +77,7 @@ export const FlashcardForm = ({
   };
 
   return (
-    <form className="form-grid" onSubmit={handleSubmit} noValidate>
+    <form className="form-grid" onSubmit={handleSubmit(submitValues)} noValidate>
       {formError ? (
         <div role="alert" className="alert">
           {formError}
@@ -78,17 +90,17 @@ export const FlashcardForm = ({
         </label>
         <input
           id="term"
-          name="term"
-          value={values.term}
-          onChange={(event) => setValues((prev) => ({ ...prev, term: event.target.value }))}
           className="field-input"
-          aria-invalid={Boolean(fieldErrors?.term || clientFieldErrors.term)}
-          aria-describedby="term-error"
+          aria-invalid={Boolean(visibleTermError)}
+          aria-describedby={visibleTermError ? "term-error" : undefined}
           maxLength={200}
+          {...register("term")}
         />
-        <p id="term-error" className="field-error">
-          {fieldErrors?.term ?? clientFieldErrors.term ?? ""}
-        </p>
+        {visibleTermError ? (
+          <p id="term-error" className="field-error">
+            {visibleTermError}
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -97,19 +109,17 @@ export const FlashcardForm = ({
         </label>
         <textarea
           id="definition"
-          name="definition"
-          value={values.definition}
-          onChange={(event) =>
-            setValues((prev) => ({ ...prev, definition: event.target.value }))
-          }
           className="field-input field-input--textarea"
-          aria-invalid={Boolean(fieldErrors?.definition || clientFieldErrors.definition)}
-          aria-describedby="definition-error"
+          aria-invalid={Boolean(visibleDefinitionError)}
+          aria-describedby={visibleDefinitionError ? "definition-error" : undefined}
           maxLength={2000}
+          {...register("definition")}
         />
-        <p id="definition-error" className="field-error">
-          {fieldErrors?.definition ?? clientFieldErrors.definition ?? ""}
-        </p>
+        {visibleDefinitionError ? (
+          <p id="definition-error" className="field-error">
+            {visibleDefinitionError}
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -118,20 +128,18 @@ export const FlashcardForm = ({
         </label>
         <input
           id="imageUrl"
-          name="imageUrl"
           type="url"
-          value={values.imageUrl}
-          onChange={(event) =>
-            setValues((prev) => ({ ...prev, imageUrl: event.target.value }))
-          }
           className="field-input"
-          aria-invalid={Boolean(fieldErrors?.imageUrl)}
-          aria-describedby="imageUrl-error"
+          aria-invalid={Boolean(visibleImageUrlError)}
+          aria-describedby={visibleImageUrlError ? "imageUrl-error" : undefined}
           maxLength={2048}
+          {...register("imageUrl")}
         />
-        <p id="imageUrl-error" className="field-error">
-          {fieldErrors?.imageUrl ?? ""}
-        </p>
+        {visibleImageUrlError ? (
+          <p id="imageUrl-error" className="field-error">
+            {visibleImageUrlError}
+          </p>
+        ) : null}
       </div>
 
       <button
