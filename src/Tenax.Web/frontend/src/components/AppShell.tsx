@@ -36,15 +36,14 @@ export const AppShell = () => {
             <NavLink to="/" end className={({ isActive }) => `primary-nav__link${isActive ? " is-active" : ""}`}>
               Home
             </NavLink>
-            {menuLinks.map((link) => (
+            {session?.isAuthenticated ? (
               <NavLink
-                key={link.key}
-                to={link.href}
+                to="/decks"
                 className={({ isActive }) => `primary-nav__link${isActive ? " is-active" : ""}`}
               >
-                {link.label}
+                Decks
               </NavLink>
-            ))}
+            ) : null}
           </nav>
 
           <div className="header-controls">
