@@ -6,6 +6,7 @@ import {
   isPersistenceUnavailableError,
 } from "../api/errors";
 import { useDeckDetailQuery } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { PageScaffold } from "../components/PageScaffold";
 import { pluralize } from "../lib/format";
 
@@ -17,13 +18,8 @@ export const DeckDetailRoute = () => {
     <PageScaffold
       title={detailQuery.data?.name ?? "Deck detail"}
       subtitle="Review this deck and continue studying or authoring."
+      breadcrumb={<Breadcrumb items={[{ label: "Decks", href: "/decks" }, { label: detailQuery.data?.name ?? deckId }]} />}
     >
-      <div style={{ marginBottom: "1rem" }}>
-        <Link to="/decks" className="link-inline">
-          Back to decks
-        </Link>
-      </div>
-
       {detailQuery.isLoading ? <p className="text-muted">Loading deck...</p> : null}
 
       {detailQuery.isError ? (
@@ -48,11 +44,6 @@ export const DeckDetailRoute = () => {
               Retry
             </button>
           ) : null}
-          <p className="flat-list__meta" style={{ marginTop: "0.6rem" }}>
-            <Link to="/decks" className="link-inline">
-              Go back to decks
-            </Link>
-          </p>
         </div>
       ) : null}
 

@@ -74,7 +74,7 @@ describe("flashcard routes", () => {
     expect(screen.getByText(/loading flashcards/i)).toBeInTheDocument();
     expect(await screen.findByText("hola")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /new flashcard/i })).toBeInTheDocument();
-    expect(screen.getByText(/deck: spanish basics/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Spanish Basics" })).toBeInTheDocument();
     expect(screen.getByText(/showing 1–1 of 1/i)).toBeInTheDocument();
   });
 
@@ -193,7 +193,7 @@ describe("flashcard routes", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: /retry/i }));
 
-    expect(await screen.findByText("hola")).toBeInTheDocument();
+    expect(await screen.findByText("hola", { selector: ".flat-list__title" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -269,7 +269,7 @@ describe("flashcard routes", () => {
       "/decks/deck_123/flashcards/fc_1"
     );
 
-    expect(await screen.findByText("hola")).toBeInTheDocument();
+    expect(await screen.findByText("hola", { selector: ".flashcard-study-card__term" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
     expect(screen.getByRole("dialog", { name: /confirm delete flashcard/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^cancel$/i })).toHaveFocus();
@@ -338,13 +338,13 @@ describe("flashcard routes", () => {
     );
 
     const studyCard = await screen.findByRole("button", { name: /press enter or space to flip the flashcard/i });
-    expect(screen.getByText("hola")).toBeInTheDocument();
+    expect(screen.getByText("hola", { selector: ".flashcard-study-card__term" })).toBeInTheDocument();
     expect(screen.queryByText("hello")).not.toBeInTheDocument();
 
     await userEvent.click(studyCard);
 
     expect(await screen.findByText("hello")).toBeInTheDocument();
-    expect(screen.queryByText("hola")).not.toBeInTheDocument();
+    expect(screen.queryByText("hola", { selector: ".flashcard-study-card__term" })).not.toBeInTheDocument();
   });
 
   it("toggles front and back with enter and space keyboard controls", async () => {
@@ -378,11 +378,11 @@ describe("flashcard routes", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(await screen.findByText("hello")).toBeInTheDocument();
-    expect(screen.queryByText("hola")).not.toBeInTheDocument();
+    expect(screen.queryByText("hola", { selector: ".flashcard-study-card__term" })).not.toBeInTheDocument();
 
     await userEvent.keyboard(" ");
 
-    expect(await screen.findByText("hola")).toBeInTheDocument();
+    expect(await screen.findByText("hola", { selector: ".flashcard-study-card__term" })).toBeInTheDocument();
     expect(screen.queryByText("hello")).not.toBeInTheDocument();
   });
 

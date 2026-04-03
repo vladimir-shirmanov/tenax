@@ -9,6 +9,7 @@ import {
   useDeleteFlashcardMutation,
   useFlashcardDetailQuery,
 } from "../api/flashcards";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { PageScaffold } from "../components/PageScaffold";
 import { formatRelativeTime } from "../lib/format";
 
@@ -84,11 +85,21 @@ export const FlashcardDetailRoute = () => {
   }, [confirmDelete]);
 
   return (
-    <PageScaffold title="Flashcard detail" subtitle="Review full content and metadata.">
+    <PageScaffold
+      title="Flashcard detail"
+      subtitle="Review full content and metadata."
+      breadcrumb={
+        <Breadcrumb
+          items={[
+            { label: "Decks", href: "/decks" },
+            { label: deckId, href: `/decks/${deckId}` },
+            { label: "Flashcards", href: `/decks/${deckId}/flashcards` },
+            { label: detailQuery.data?.term ?? flashcardId },
+          ]}
+        />
+      }
+    >
       <div className="section-row" style={{ marginBottom: "1rem" }}>
-        <Link to={`/decks/${deckId}/flashcards`} className="link-inline">
-          Back to flashcards
-        </Link>
         <div className="section-row">
           <Link to={`/decks/${deckId}/flashcards/${flashcardId}/edit`} className="button button--primary">
             Edit

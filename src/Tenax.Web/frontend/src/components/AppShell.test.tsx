@@ -59,10 +59,7 @@ describe("app shell", () => {
         },
         menu: {
           visible: true,
-            links: [
-              { key: "decks", label: "Decks", href: "/decks" },
-              { key: "flashcards", label: "Flashcards", href: "/decks" },
-            ],
+          links: [{ key: "decks", label: "Decks", href: "/decks" }],
         },
       },
       refetch: jest.fn(),
@@ -77,7 +74,7 @@ describe("app shell", () => {
 
     expect(screen.getByRole("link", { name: /tenax/i })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Decks" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Flashcards" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Flashcards" })).not.toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: /system theme/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /light theme/i })).toBeInTheDocument();

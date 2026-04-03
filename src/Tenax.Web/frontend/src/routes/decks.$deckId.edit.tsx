@@ -1,10 +1,11 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   getApiErrorMessage,
   getValidationError,
   isConcurrencyConflictError,
 } from "../api/errors";
 import { useDeckDetailQuery, useUpdateDeckMutation } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckForm } from "../components/DeckForm";
 import { PageScaffold } from "../components/PageScaffold";
 
@@ -15,13 +16,19 @@ export const DeckEditRoute = () => {
   const mutation = useUpdateDeckMutation(deckId);
 
   return (
-    <PageScaffold title="Edit deck" subtitle="Update deck metadata and keep your library accurate.">
-      <div style={{ marginBottom: "1rem" }}>
-        <Link to={`/decks/${deckId}`} className="link-inline">
-          Back to detail
-        </Link>
-      </div>
-
+    <PageScaffold
+      title="Edit deck"
+      subtitle="Update deck metadata and keep your library accurate."
+      breadcrumb={
+        <Breadcrumb
+          items={[
+            { label: "Decks", href: "/decks" },
+            { label: detailQuery.data?.name ?? deckId, href: `/decks/${deckId}` },
+            { label: "Edit" },
+          ]}
+        />
+      }
+    >
       {detailQuery.isLoading ? <p className="text-muted">Loading deck...</p> : null}
       {detailQuery.isError ? (
         <div role="alert" className="alert">

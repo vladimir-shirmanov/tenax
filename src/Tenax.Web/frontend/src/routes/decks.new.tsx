@@ -1,6 +1,7 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getApiErrorMessage, getValidationError } from "../api/errors";
 import { useCreateDeckMutation } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { DeckForm } from "../components/DeckForm";
 import { PageScaffold } from "../components/PageScaffold";
 
@@ -9,13 +10,11 @@ export const DeckCreateRoute = () => {
   const mutation = useCreateDeckMutation();
 
   return (
-    <PageScaffold title="Create new deck" subtitle="Set up a focused container for your next study unit.">
-      <div style={{ marginBottom: "1rem" }}>
-        <Link to="/decks" className="link-inline">
-          Back to decks
-        </Link>
-      </div>
-
+    <PageScaffold
+      title="Create new deck"
+      subtitle="Set up a focused container for your next study unit."
+      breadcrumb={<Breadcrumb items={[{ label: "Decks", href: "/decks" }, { label: "New deck" }]} />}
+    >
       <DeckForm
         submitLabel="Create deck"
         isSubmitting={mutation.isPending}

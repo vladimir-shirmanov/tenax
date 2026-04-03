@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   getApiErrorMessage,
   getValidationError,
@@ -8,6 +8,7 @@ import {
   useFlashcardDetailQuery,
   useUpdateFlashcardMutation,
 } from "../api/flashcards";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { FlashcardForm } from "../components/FlashcardForm";
 import { PageScaffold } from "../components/PageScaffold";
 
@@ -18,12 +19,21 @@ export const FlashcardEditRoute = () => {
   const mutation = useUpdateFlashcardMutation(deckId, flashcardId);
 
   return (
-    <PageScaffold title="Edit flashcard" subtitle="Update content and keep this card accurate.">
-      <div style={{ marginBottom: "1rem" }}>
-        <Link to={`/decks/${deckId}/flashcards/${flashcardId}`} className="link-inline">
-          Back to detail
-        </Link>
-      </div>
+    <PageScaffold
+      title="Edit flashcard"
+      subtitle="Update content and keep this card accurate."
+      breadcrumb={
+        <Breadcrumb
+          items={[
+            { label: "Decks", href: "/decks" },
+            { label: deckId, href: `/decks/${deckId}` },
+            { label: "Flashcards", href: `/decks/${deckId}/flashcards` },
+            { label: detailQuery.data?.term ?? flashcardId, href: `/decks/${deckId}/flashcards/${flashcardId}` },
+            { label: "Edit" },
+          ]}
+        />
+      }
+    >
       {detailQuery.isLoading ? <p className="text-muted">Loading flashcard...</p> : null}
       {detailQuery.isError ? (
         <div role="alert" className="alert">

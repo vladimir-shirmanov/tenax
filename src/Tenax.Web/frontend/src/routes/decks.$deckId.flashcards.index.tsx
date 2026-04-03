@@ -2,6 +2,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { getApiErrorMessage, isPersistenceUnavailableError } from "../api/errors";
 import { useFlashcardListQuery } from "../api/flashcards";
 import { useDeckDetailQuery } from "../api/decks";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { PageScaffold } from "../components/PageScaffold";
 import { formatRelativeTime } from "../lib/format";
 
@@ -27,16 +28,17 @@ export const FlashcardListRoute = () => {
     <PageScaffold
       title="Flashcards"
       subtitle="Create and maintain your deck content with quick edit and delete actions."
+      breadcrumb={
+        <Breadcrumb
+          items={[
+            { label: "Decks", href: "/decks" },
+            { label: deckQuery.data?.name ?? deckId, href: `/decks/${deckId}` },
+            { label: "Flashcards" },
+          ]}
+        />
+      }
     >
-      <div className="section-row">
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-          <Link to="/decks" className="link-inline">
-            ← All decks
-          </Link>
-          <p className="text-muted" style={{ margin: 0 }}>
-            {deckQuery.data?.name ?? deckId}
-          </p>
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <Link
           to={`/decks/${deckId}/flashcards/new`}
           className="button button--primary"

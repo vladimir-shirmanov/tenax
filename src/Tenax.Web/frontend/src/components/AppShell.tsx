@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { getApiErrorMessage } from "../api/errors";
 import {
@@ -7,10 +8,76 @@ import {
 } from "../api/auth";
 import { ThemePreference, useTheme } from "../app/theme";
 
-const themeControlOptions: Array<{ value: ThemePreference; label: string }> = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+type ThemeOption = { value: ThemePreference; label: string; icon: ReactNode };
+
+const themeControlOptions: ThemeOption[] = [
+  {
+    value: "system",
+    label: "System",
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="1" y="2" width="14" height="10" rx="1" />
+        <path d="M5 15h6" />
+        <path d="M8 12v3" />
+      </svg>
+    ),
+  },
+  {
+    value: "light",
+    label: "Light",
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="8" cy="8" r="3" />
+        <line x1="8" y1="1" x2="8" y2="3" />
+        <line x1="8" y1="13" x2="8" y2="15" />
+        <line x1="1" y1="8" x2="3" y2="8" />
+        <line x1="13" y1="8" x2="15" y2="8" />
+        <line x1="2.93" y1="2.93" x2="4.34" y2="4.34" />
+        <line x1="11.66" y1="11.66" x2="13.07" y2="13.07" />
+        <line x1="2.93" y1="13.07" x2="4.34" y2="11.66" />
+        <line x1="11.66" y1="4.34" x2="13.07" y2="2.93" />
+      </svg>
+    ),
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z" />
+      </svg>
+    ),
+  },
 ];
 
 export const AppShell = () => {
@@ -37,25 +104,9 @@ export const AppShell = () => {
               Home
             </NavLink>
             {session?.isAuthenticated ? (
-              <>
-                <NavLink
-                  to="/decks"
-                  end
-                  className={`primary-nav__link${
-                    location.pathname.startsWith("/decks") && !location.pathname.includes("/flashcards")
-                      ? " is-active"
-                      : ""
-                  }`}
-                >
-                  Decks
-                </NavLink>
-                <NavLink
-                  to="/decks"
-                  className={`primary-nav__link${location.pathname.includes("/flashcards") ? " is-active" : ""}`}
-                >
-                  Flashcards
-                </NavLink>
-              </>
+              <NavLink to="/decks" className={({ isActive }) => `primary-nav__link${isActive ? " is-active" : ""}`}>
+                Decks
+              </NavLink>
             ) : null}
           </nav>
 
@@ -68,11 +119,12 @@ export const AppShell = () => {
                     key={option.value}
                     type="button"
                     aria-pressed={isSelected}
+                    aria-label={`${option.label} theme`}
+                    title={`${option.label} theme`}
                     className={`theme-toggle__button${isSelected ? " is-active" : ""}`}
                     onClick={() => setPreference(option.value)}
                   >
-                    <span className="sr-only">{option.label} theme</span>
-                    <span aria-hidden="true">{option.label}</span>
+                    {option.icon}
                   </button>
                 );
               })}
