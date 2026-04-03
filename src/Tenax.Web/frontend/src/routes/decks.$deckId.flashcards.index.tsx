@@ -3,7 +3,7 @@ import { getApiErrorMessage, isPersistenceUnavailableError } from "../api/errors
 import { useFlashcardListQuery } from "../api/flashcards";
 import { useDeckDetailQuery } from "../api/decks";
 import { PageScaffold } from "../components/PageScaffold";
-import { formatRelativeTime } from "../app/format";
+import { formatRelativeTime } from "../lib/format";
 
 export const FlashcardListRoute = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -16,6 +16,12 @@ export const FlashcardListRoute = () => {
   const totalPages = query.data ? Math.max(1, Math.ceil(query.data.totalCount / pageSize)) : 1;
   const canGoPrevious = page > 1;
   const canGoNext = page < totalPages;
+  const showingStart =
+    query.data && query.data.totalCount > 0 ? (query.data.page - 1) * query.data.pageSize + 1 : 0;
+  const showingEnd =
+    query.data && query.data.totalCount > 0
+      ? Math.min(query.data.page * query.data.pageSize, query.data.totalCount)
+      : 0;
 
   return (
     <PageScaffold
@@ -90,7 +96,7 @@ export const FlashcardListRoute = () => {
             Previous
           </button>
           <p className="text-muted" style={{ margin: 0 }}>
-            Page {page} of {totalPages}
+            Showing {showingStart}–{showingEnd} of {query.data.totalCount}
           </p>
           <button
             type="button"

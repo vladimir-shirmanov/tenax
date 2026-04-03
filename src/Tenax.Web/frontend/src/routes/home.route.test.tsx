@@ -34,6 +34,10 @@ jest.mock("oidc-client-ts", () => {
 describe("home route auth behavior", () => {
   const renderHomeRoute = (initialEntry: string) => {
     const queryClient = createTestQueryClient();
+    const routerFutureFlags = {
+      v7_startTransition: true,
+    } as unknown as NonNullable<Parameters<typeof createMemoryRouter>[1]>["future"];
+
     const router = createMemoryRouter(
       [
         {
@@ -46,7 +50,10 @@ describe("home route auth behavior", () => {
           ],
         },
       ],
-      { initialEntries: [initialEntry] }
+      {
+        initialEntries: [initialEntry],
+        future: routerFutureFlags,
+      }
     );
 
     return render(

@@ -7,7 +7,7 @@ import {
 } from "../api/errors";
 import { useDeckDetailQuery } from "../api/decks";
 import { PageScaffold } from "../components/PageScaffold";
-import { pluralize } from "../app/format";
+import { pluralize } from "../lib/format";
 
 export const DeckDetailRoute = () => {
   const { deckId = "" } = useParams();
@@ -15,7 +15,7 @@ export const DeckDetailRoute = () => {
 
   return (
     <PageScaffold
-      title={detailQuery.data?.name ?? "Deck"}
+      title={detailQuery.data?.name ?? "Deck detail"}
       subtitle="Review this deck and continue studying or authoring."
     >
       <div style={{ marginBottom: "1rem" }}>

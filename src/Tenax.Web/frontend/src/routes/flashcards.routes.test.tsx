@@ -75,6 +75,7 @@ describe("flashcard routes", () => {
     expect(await screen.findByText("hola")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /new flashcard/i })).toBeInTheDocument();
     expect(screen.getByText(/deck: spanish basics/i)).toBeInTheDocument();
+    expect(screen.getByText(/showing 1–1 of 1/i)).toBeInTheDocument();
   });
 
   it("renders flashcard list empty state", async () => {
@@ -271,6 +272,7 @@ describe("flashcard routes", () => {
     expect(await screen.findByText("hola")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
     expect(screen.getByRole("dialog", { name: /confirm delete flashcard/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toHaveFocus();
 
     await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
 

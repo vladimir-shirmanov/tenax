@@ -258,7 +258,6 @@ const readClientSession = async (): Promise<AuthSessionResponse> => {
   }
 
   try {
-    const config = readAuthConfig();
     const currentUser = await manager.getUser();
     syncStorageFromUser(currentUser);
 
@@ -301,6 +300,22 @@ export const tryRefreshAccessToken = async () => {
     clearAuthSession();
     return false;
   }
+};
+
+export const ensureAuthRedirect = () => {
+  const manager = getUserManager(false);
+  if (!manager) {
+    return;
+  }
+
+  void manager.signinRedirect({
+    state: {
+      returnTo:
+        typeof window === "undefined"
+          ? "/"
+          : `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    },
+  });
 };
 
 export const useAuthSessionQuery = () =>

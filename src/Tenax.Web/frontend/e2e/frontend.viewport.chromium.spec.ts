@@ -204,8 +204,8 @@ test.describe("runtime viewport validation in Chromium", () => {
       window.getComputedStyle(element).gridTemplateAreas
     );
 
-    expect(templateAreas).toContain("brand controls");
-    expect(templateAreas).toContain("nav nav");
+    expect(templateAreas).toContain("brand nav");
+    expect(templateAreas).toContain("controls controls");
   });
 
   test("validates keyboard navigation and labeled controls on deck create/edit routes", async ({ page }) => {

@@ -50,6 +50,7 @@ describe("deck routes", () => {
     expect(await screen.findByText("Spanish Basics")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /create deck/i })).toBeInTheDocument();
     expect(screen.getByText("42 flashcards")).toBeInTheDocument();
+    expect(screen.getByText(/showing 1–1 of 1/i)).toBeInTheDocument();
   });
 
   it("renders deck list empty state", async () => {
@@ -103,6 +104,7 @@ describe("deck routes", () => {
     expect(await screen.findByText("1 flashcard")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /delete/i }));
     expect(await screen.findByText(/remove all 1 flashcard inside/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toHaveFocus();
   });
 
   it("renders deck list error and supports retry for persistence outage", async () => {

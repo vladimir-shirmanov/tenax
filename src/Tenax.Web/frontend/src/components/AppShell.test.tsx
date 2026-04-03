@@ -16,6 +16,10 @@ jest.mock("../api/auth", () => ({
 }));
 
 const renderShell = (initialPath = "/") => {
+  const routerFutureFlags = {
+    v7_startTransition: true,
+  } as unknown as NonNullable<Parameters<typeof createMemoryRouter>[1]>["future"];
+
   const router = createMemoryRouter(
     [
       {
@@ -27,7 +31,10 @@ const renderShell = (initialPath = "/") => {
         ],
       },
     ],
-    { initialEntries: [initialPath] }
+    {
+      initialEntries: [initialPath],
+      future: routerFutureFlags,
+    }
   );
 
   return render(

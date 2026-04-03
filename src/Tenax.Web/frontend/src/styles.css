@@ -248,7 +248,7 @@ body {
 .page__title {
   margin: 0;
   font-family: "Fraunces", serif;
-  font-size: clamp(1.75rem, 2.2vw, 2.45rem);
+  font-size: clamp(2rem, 5vw, 3.5rem);
   line-height: 1.2;
 }
 
@@ -279,7 +279,7 @@ body {
 .landing-heading {
   margin: 0;
   font-family: "Fraunces", serif;
-  font-size: clamp(2rem, 4.7vw, 3.2rem);
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
   line-height: 1.1;
   max-width: 18ch;
 }
@@ -526,10 +526,23 @@ body {
 }
 
 .field-hint {
-  margin: 0.35rem 0 0;
+  margin-top: 0.25rem;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   line-height: 1.5;
+}
+
+dialog {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.9rem;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  padding: 1rem;
+  width: min(32rem, calc(100vw - 2rem));
+}
+
+dialog::backdrop {
+  background: color-mix(in srgb, var(--text-primary) 34%, transparent);
 }
 
 .field-error {
@@ -555,6 +568,37 @@ textarea:focus-visible {
 }
 
 @media (max-width: 47.999rem) {
+  .app-header__inner {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "brand nav"
+      "controls controls";
+    align-items: center;
+    row-gap: 0.5rem;
+    column-gap: 0.5rem;
+  }
+
+  .brand-link {
+    grid-area: brand;
+  }
+
+  .primary-nav {
+    grid-area: nav;
+    justify-self: end;
+  }
+
+  .primary-nav__link {
+    padding: 0.25rem 0.5rem;
+  }
+
+  .header-controls {
+    grid-area: controls;
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+
   .page {
     padding-top: 1.2rem;
   }
@@ -564,41 +608,12 @@ textarea:focus-visible {
   }
 
   .auth-actions {
-    width: 100%;
+    width: auto;
     justify-content: flex-end;
   }
 
   .flashcard-study-card {
     min-height: 24rem;
-  }
-}
-
-@media (max-width: 23.4375rem) {
-  .app-header__inner {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-areas:
-      "brand controls"
-      "nav nav";
-    align-items: center;
-    row-gap: 0.5rem;
-    column-gap: 0.5rem;
-    padding-block: 0.55rem;
-  }
-
-  .brand-link {
-    grid-area: brand;
-  }
-
-  .header-controls {
-    grid-area: controls;
-    justify-content: flex-end;
-  }
-
-  .primary-nav {
-    grid-area: nav;
-    width: 100%;
-    justify-content: center;
   }
 }
 

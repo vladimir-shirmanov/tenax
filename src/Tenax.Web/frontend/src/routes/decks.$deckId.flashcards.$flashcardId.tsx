@@ -10,7 +10,7 @@ import {
   useFlashcardDetailQuery,
 } from "../api/flashcards";
 import { PageScaffold } from "../components/PageScaffold";
-import { formatRelativeTime } from "../app/format";
+import { formatRelativeTime } from "../lib/format";
 
 export const FlashcardDetailRoute = () => {
   const { deckId = "", flashcardId = "" } = useParams();
@@ -59,13 +59,13 @@ export const FlashcardDetailRoute = () => {
       return;
     }
 
-    if (confirmDelete) {
-      if (!dialog.open && typeof dialog.showModal === "function") {
-        dialog.showModal();
-      } else if (!dialog.open) {
-        dialog.setAttribute("open", "true");
-      }
-      dialog.querySelector<HTMLButtonElement>("button")?.focus();
+      if (confirmDelete) {
+        if (!dialog.open && typeof dialog.showModal === "function") {
+          dialog.showModal();
+        } else if (!dialog.open) {
+          dialog.setAttribute("open", "true");
+        }
+        dialog.querySelector<HTMLButtonElement>("[data-dialog-cancel]")?.focus();
 
       return () => {
         if (dialog.open && typeof dialog.close === "function") {
@@ -163,7 +163,7 @@ export const FlashcardDetailRoute = () => {
       {confirmDelete ? (
         <dialog
           ref={deleteDialogRef}
-          aria-label="Confirm delete flashcard"
+          aria-labelledby="delete-flashcard-heading"
           onCancel={(event) => {
             event.preventDefault();
             if (!deleteMutation.isPending) {
@@ -171,6 +171,9 @@ export const FlashcardDetailRoute = () => {
             }
           }}
         >
+          <h2 id="delete-flashcard-heading" className="flat-list__title" style={{ marginBottom: "0.6rem" }}>
+            Confirm delete flashcard
+          </h2>
           <p className="text-muted" style={{ margin: 0 }}>Delete this flashcard? This cannot be undone.</p>
           {deleteMutation.isError ? (
             <p role="alert" className="field-error">
@@ -200,6 +203,7 @@ export const FlashcardDetailRoute = () => {
             </button>
             <button
               type="button"
+              data-dialog-cancel
               className="button button--ghost"
               onClick={() => setConfirmDelete(false)}
               disabled={deleteMutation.isPending}

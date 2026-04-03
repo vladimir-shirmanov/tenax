@@ -7,7 +7,7 @@ import {
 } from "../api/errors";
 import { useDeckListQuery, useDeleteDeckMutation } from "../api/decks";
 import { PageScaffold } from "../components/PageScaffold";
-import { pluralize } from "../app/format";
+import { pluralize } from "../lib/format";
 
 export const DecksRoute = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -27,6 +27,12 @@ export const DecksRoute = () => {
   const totalPages = listQuery.data ? Math.max(1, Math.ceil(listQuery.data.totalCount / pageSize)) : 1;
   const canGoPrevious = page > 1;
   const canGoNext = page < totalPages;
+  const showingStart =
+    listQuery.data && listQuery.data.totalCount > 0 ? (listQuery.data.page - 1) * listQuery.data.pageSize + 1 : 0;
+  const showingEnd =
+    listQuery.data && listQuery.data.totalCount > 0
+      ? Math.min(listQuery.data.page * listQuery.data.pageSize, listQuery.data.totalCount)
+      : 0;
 
   useEffect(() => {
     const dialog = deleteDialogRef.current;
@@ -34,13 +40,13 @@ export const DecksRoute = () => {
       return;
     }
 
-    if (pendingDeleteDeck) {
-      if (!dialog.open && typeof dialog.showModal === "function") {
-        dialog.showModal();
-      } else if (!dialog.open) {
-        dialog.setAttribute("open", "true");
-      }
-      dialog.querySelector<HTMLButtonElement>("button")?.focus();
+      if (pendingDeleteDeck) {
+        if (!dialog.open && typeof dialog.showModal === "function") {
+          dialog.showModal();
+        } else if (!dialog.open) {
+          dialog.setAttribute("open", "true");
+        }
+        dialog.querySelector<HTMLButtonElement>("[data-dialog-cancel]")?.focus();
 
       return () => {
         if (dialog.open && typeof dialog.close === "function") {
@@ -152,7 +158,7 @@ export const DecksRoute = () => {
             Previous
           </button>
           <p className="text-muted" style={{ margin: 0 }}>
-            Page {page} of {totalPages}
+            Showing {showingStart}–{showingEnd} of {listQuery.data.totalCount}
           </p>
           <button
             type="button"
@@ -170,7 +176,7 @@ export const DecksRoute = () => {
       {pendingDeleteDeck ? (
         <dialog
           ref={deleteDialogRef}
-          aria-label="Delete deck confirmation"
+          aria-labelledby="delete-deck-heading"
           onCancel={(event) => {
             event.preventDefault();
             if (!deleteMutation.isPending) {
@@ -178,6 +184,9 @@ export const DecksRoute = () => {
             }
           }}
         >
+          <h2 id="delete-deck-heading" className="flat-list__title" style={{ marginBottom: "0.6rem" }}>
+            Delete deck confirmation
+          </h2>
           <p className="text-muted" style={{ margin: 0 }}>
             Are you sure you want to delete "{pendingDeleteDeck.name}"? This will also permanently remove all{" "}
             {pluralize(pendingDeleteDeck.flashcardCount, "flashcard")} inside. This action cannot be undone.
@@ -210,6 +219,7 @@ export const DecksRoute = () => {
             </button>
             <button
               type="button"
+              data-dialog-cancel
               className="button button--ghost"
               onClick={() => setPendingDeleteDeckId(null)}
               disabled={deleteMutation.isPending}

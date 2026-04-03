@@ -1,7 +1,7 @@
 import { ApiError } from "./errors";
 import { ApiErrorEnvelope } from "./types";
 import { clearAuthSession, readActiveAccessToken } from "./auth-storage";
-import { tryRefreshAccessToken } from "./auth";
+import { ensureAuthRedirect, tryRefreshAccessToken } from "./auth";
 
 declare global {
   interface Window {
@@ -59,6 +59,8 @@ export const requestJson = async <T>(
     const refreshed = await tryRefreshAccessToken();
     if (refreshed) {
       ({ response, payload } = await executeRequest());
+    } else {
+      ensureAuthRedirect();
     }
   }
 

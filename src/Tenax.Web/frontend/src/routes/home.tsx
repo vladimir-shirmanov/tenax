@@ -52,7 +52,7 @@ export const HomeRoute = () => {
       {!isAuthenticated ? (
         <section className="stack">
           <p className="landing-eyebrow">Focused language practice</p>
-          <h1 className="landing-heading">Build retention through deliberate review, not clutter.</h1>
+          <h2 className="landing-heading">Build retention through deliberate review, not clutter.</h2>
           <p className="landing-copy">
             Tenax keeps each study session clear and calm so you can revisit vocabulary,
             reinforce meaning, and resume progress quickly from any device.
@@ -74,7 +74,7 @@ export const HomeRoute = () => {
               Signed in as {user.displayName}
             </p>
           </div>
-          <h1 className="landing-heading">Continue your study flow in one step.</h1>
+          <h2 className="landing-heading">Continue your study flow in one step.</h2>
           <p className="landing-copy">
             Jump directly to your active deck or open authoring tools to capture new terms while
             momentum is fresh.

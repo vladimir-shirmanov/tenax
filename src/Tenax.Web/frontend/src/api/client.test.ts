@@ -1,13 +1,15 @@
 import { requestJson } from "./client";
 import { persistAuthSession, readAuthSession } from "./auth-storage";
-import { tryRefreshAccessToken } from "./auth";
+import { ensureAuthRedirect, tryRefreshAccessToken } from "./auth";
 import { ApiError } from "./errors";
 
 jest.mock("./auth", () => ({
   tryRefreshAccessToken: jest.fn(),
+  ensureAuthRedirect: jest.fn(),
 }));
 
 const mockedTryRefreshAccessToken = tryRefreshAccessToken as jest.MockedFunction<typeof tryRefreshAccessToken>;
+const mockedEnsureAuthRedirect = ensureAuthRedirect as jest.MockedFunction<typeof ensureAuthRedirect>;
 
 const jsonResponse = (status: number, body: unknown) =>
   Promise.resolve({
@@ -21,6 +23,7 @@ describe("requestJson", () => {
     jest.restoreAllMocks();
     sessionStorage.clear();
     mockedTryRefreshAccessToken.mockReset();
+    mockedEnsureAuthRedirect.mockReset();
   });
 
   it("retries once after 401 when silent renew succeeds", async () => {
@@ -49,6 +52,7 @@ describe("requestJson", () => {
 
     await expect(requestJson("/api/ping")).rejects.toBeInstanceOf(ApiError);
     expect(mockedTryRefreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(mockedEnsureAuthRedirect).toHaveBeenCalledTimes(1);
     expect(readAuthSession()).toBeNull();
   });
 });

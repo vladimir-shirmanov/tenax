@@ -74,4 +74,18 @@ describe("FlashcardForm", () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it("disables submit when unchanged if disableIfUnchanged is enabled", () => {
+    render(
+      <FlashcardForm
+        initialValues={{ term: "hola", definition: "hello", imageUrl: "" }}
+        submitLabel="Save changes"
+        isSubmitting={false}
+        disableIfUnchanged
+        onSubmit={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /save changes/i })).toBeDisabled();
+  });
 });

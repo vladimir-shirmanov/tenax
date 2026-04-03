@@ -16,20 +16,34 @@ export const renderRoute = (
   element: ReactElement,
   initialEntry: string
 ) => {
+  const testRouterFutureFlags = {
+    v7_startTransition: true,
+  } as unknown as NonNullable<Parameters<typeof createMemoryRouter>[1]>["future"];
+
   const queryClient = createTestQueryClient();
   const router = createMemoryRouter(
     [
       { path: routePath, element },
       { path: "*", element: <div>navigated</div> },
     ],
-    { initialEntries: [initialEntry] }
+    {
+      initialEntries: [initialEntry],
+      future: testRouterFutureFlags,
+    }
   );
 
   return {
     queryClient,
     ...render(
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <RouterProvider
+          router={router}
+          future={
+            {
+              v7_startTransition: true,
+            } as never
+          }
+        />
       </QueryClientProvider>
     ),
   };
