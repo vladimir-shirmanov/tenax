@@ -1,0 +1,45 @@
+stage: docs
+scope:
+  summary: "Align flashcard study interaction documentation with delivered detail-route study card behavior in frontend."
+  out_of_scope:
+    - "Changing frontend runtime code, backend API code, or persistence code"
+    - "Running build or test commands from docs stage"
+    - "Introducing new API endpoints or response schema changes"
+acceptance_criteria:
+  - "Documentation states that flashcard detail route now behaves as a study card with front/back faces."
+  - "Documentation captures click and keyboard interaction parity (Enter/Space)."
+  - "Documentation captures flip motion behavior and reduced-motion fallback behavior."
+  - "Documentation notes that existing loading, error, edit, and delete flows are preserved."
+files_changed:
+  - "docs/adr/0015-flashcard-study-flip-interaction-contract-first-boundary.md"
+  - "docs/contracts/api/flashcards-get-detail-contract.yaml"
+  - "docs/design-handoffs/2026-03-18-flashcard-study-interaction.md"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-18-flashcard-study-interaction-docs-handoff.yaml"
+  - "docs/ways-of-work/runbook/handoffs/2026-03-18-flashcard-study-interaction-issue-tasks.yaml"
+test_evidence:
+  targeted:
+    - command: "source review of src/Tenax.Web/frontend/src/routes/decks.$deckId.flashcards.$flashcardId.tsx"
+      outcome: "Confirmed implemented study-card behavior and preserved surrounding route flows."
+    - command: "source review of src/Tenax.Web/frontend/src/routes/flashcards.routes.test.tsx"
+      outcome: "Confirmed regression coverage for click, keyboard, optional image visibility, and reduced-motion behavior."
+    - command: "source review of src/Tenax.Web/frontend/src/styles.css"
+      outcome: "Confirmed 3D flip styling and prefers-reduced-motion fallback styles."
+  full_suite:
+    - command: "not run (docs-only stage)"
+      outcome: "No executable validation run by documentation agent."
+behavioral_impact:
+  api_changes:
+    - "No API endpoint or response schema changes."
+    - "GET /api/decks/{deckId}/flashcards/{flashcardId} remains the sole data source for study card content."
+  data_changes:
+    - "No database, migration, or persistence behavior changes."
+  config_changes:
+    - "No configuration or environment variable changes."
+risks:
+  - "Reduced-motion behavior verification is documented from implementation and route tests, but browser-level E2E accessibility verification is still recommended."
+  - "Future UI refactors could regress front/back semantics if route tests are not kept in sync with behavior expectations."
+next_agent_expectations:
+  - "qa: validate browser E2E parity for click and keyboard flip behavior and reduced-motion user preference handling."
+  - "release: summarize this as frontend interaction-only delivery with no backend/API contract break."
+issue_tasks:
+  - "See docs/ways-of-work/runbook/handoffs/2026-03-18-flashcard-study-interaction-issue-tasks.yaml"

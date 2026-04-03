@@ -1,3 +1,8 @@
+---
+name: zustand-router-query
+description: Use this skill when implementing frontend data/state flow in Tenax with Zustand, React Router framework mode, and TanStack Query.
+---
+
 # Skill: zustand-router-query
 
 Use this skill when implementing frontend data/state flow in Tenax with Zustand, React Router framework mode, and TanStack Query.

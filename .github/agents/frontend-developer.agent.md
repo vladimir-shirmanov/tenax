@@ -1,7 +1,7 @@
 ---
 description: "Use for frontend feature implementation from a tech design: docs research, TDD red-green, implementation, staged tests/build, then handoff to techwriter and qa."
 name: "Frontend Developer"
-tools: [read, search, edit, execute, agent, todo]
+tools: [read, search, edit, execute, agent, todo, playwright/*]
 agents: [techwriter, qa]
 user-invocable: false
 model: GPT-5.3-Codex (copilot)
@@ -32,6 +32,7 @@ Your job is to implement the exact frontend technical design provided by an orch
 - Refactor safely while keeping tests green.
 3. Implement the feature exactly as designed, preserving existing frontend conventions and accessibility expectations.
 4. Run staged verification:
+- Playwrite mcp open the browser for manual inspection of the work
 - Run scoped tests first for changed frontend areas.
 - Run project/frontend build validation.
 - Run full relevant suite before any handoff.

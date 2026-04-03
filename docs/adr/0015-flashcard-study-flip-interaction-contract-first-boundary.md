@@ -42,9 +42,9 @@
   - Without explicit frontend tests, regressions in flip state behavior and reduced-motion handling are likely.
   - Optional image loading failure handling must be implemented defensively to avoid degraded study UX.
 - Follow-up tasks:
-  - Frontend Developer implements interactive study card presentation in detail route using existing contract fields.
-  - Frontend Developer adds route/component tests for click, keyboard, and reduced-motion behavior.
-  - QA adds acceptance checks for accessibility and interaction parity.
+  - Completed 2026-03-18: frontend detail route now renders study-card interaction in routes/decks.$deckId.flashcards.$flashcardId.tsx using existing detail contract fields.
+  - Completed 2026-03-18: frontend route tests in routes/flashcards.routes.test.tsx cover click flip, keyboard parity (Enter/Space), optional image front-only rendering, and reduced-motion class behavior.
+  - Pending: QA acceptance checks for interaction parity and accessibility in browser E2E flow.
 
 ## Parallel Delivery Notes
 - Backend track deliverables:
@@ -67,6 +67,18 @@
   - Covered by explicit additive-only compatibility and unchanged endpoint schema policy in related contract.
 - AC-4 Frontend scope boundary with backend out-of-scope by default:
   - Covered by decision that backend changes are not required unless API contract changes are discovered.
+
+## Implementation Outcome (2026-03-18)
+- Delivered behavior in flashcard detail route now functions as a study card:
+  - Front side shows term and optional image.
+  - Back side shows definition.
+  - Flip is triggered through the single semantic button surface by pointer and keyboard activation (Enter and Space).
+- Motion behavior:
+  - Default path uses CSS 3D transform on the card inner container.
+  - Reduced-motion path applies an explicit reduced-motion class plus prefers-reduced-motion media rules to use an immediate face swap.
+- Existing route flows remain intact:
+  - Loading and detail error rendering are preserved.
+  - Edit and delete controls, including delete confirmation and recoverable retry messaging, are preserved.
 
 ## Implementation Guidance
 - Backend Developer:

@@ -1,3 +1,8 @@
+---
+name: jest-frontend-testing
+description: Use this skill when creating or improving frontend test coverage in Tenax with Jest.
+---
+
 # Skill: jest-frontend-testing
 
 Use this skill when creating or improving frontend test coverage in Tenax with Jest.

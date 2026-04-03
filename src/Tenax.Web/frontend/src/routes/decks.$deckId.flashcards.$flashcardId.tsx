@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getApiErrorMessage,
   isConcurrencyConflictError,
@@ -15,8 +15,41 @@ export const FlashcardDetailRoute = () => {
   const { deckId = "", flashcardId = "" } = useParams();
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const detailQuery = useFlashcardDetailQuery(deckId, flashcardId);
   const deleteMutation = useDeleteFlashcardMutation(deckId, flashcardId);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    mediaQuery.addListener(handleChange);
+
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsFlipped(false);
+  }, [deckId, flashcardId, detailQuery.data?.id]);
 
   return (
     <PageScaffold title="Flashcard detail" subtitle="Review full content and metadata.">
@@ -54,15 +87,40 @@ export const FlashcardDetailRoute = () => {
 
       {detailQuery.data ? (
         <article className="flashcard-content">
-          <dl>
-            <dt>Term</dt>
-            <dd style={{ fontSize: "1.3rem", fontWeight: 700 }}>{detailQuery.data.term}</dd>
-            <dt>Definition</dt>
-            <dd className="whitespace-pre-wrap">{detailQuery.data.definition}</dd>
-          </dl>
-          {detailQuery.data.imageUrl ? (
-            <img src={detailQuery.data.imageUrl} alt="Flashcard" className="max-h-52 rounded-lg object-cover" />
-          ) : null}
+          <button
+            type="button"
+            aria-pressed={isFlipped}
+            aria-label={isFlipped ? "Show term" : "Show definition"}
+            className={`flashcard-study-card${isFlipped ? " is-flipped" : ""}${prefersReducedMotion ? " flashcard-study-card--reduced-motion" : ""}`}
+            onClick={() => {
+              setIsFlipped((current) => !current);
+            }}
+          >
+            <span className="sr-only">Press Enter or Space to flip the flashcard</span>
+            <div className="flashcard-study-card__inner">
+              <div className="flashcard-study-card__face flashcard-study-card__face--front" aria-hidden={isFlipped}>
+                {!isFlipped ? (
+                  <>
+                    {detailQuery.data.imageUrl ? (
+                      <img
+                        src={detailQuery.data.imageUrl}
+                        alt="Flashcard illustration"
+                        className="flashcard-study-card__image"
+                      />
+                    ) : null}
+                    <p className="flashcard-study-card__term">{detailQuery.data.term}</p>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="flashcard-study-card__face flashcard-study-card__face--back" aria-hidden={!isFlipped}>
+                {isFlipped ? (
+                  <p className="flashcard-study-card__definition whitespace-pre-wrap">{detailQuery.data.definition}</p>
+                ) : null}
+              </div>
+            </div>
+          </button>
+
           <p className="text-muted" style={{ fontSize: "0.82rem" }}>
             Updated {new Date(detailQuery.data.updatedAtUtc).toLocaleString()}
           </p>

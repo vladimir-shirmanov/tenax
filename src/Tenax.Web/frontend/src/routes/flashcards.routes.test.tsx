@@ -285,6 +285,166 @@ describe("flashcard routes", () => {
     );
   });
 
+  it("toggles from term front to definition back on click", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1")) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    expect(screen.getByText("hola")).toBeInTheDocument();
+    expect(screen.queryByText("hello")).not.toBeInTheDocument();
+
+    await userEvent.click(studyCard);
+
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+    expect(screen.queryByText("hola")).not.toBeInTheDocument();
+  });
+
+  it("toggles front and back with enter and space keyboard controls", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1")) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    studyCard.focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+    expect(screen.queryByText("hola")).not.toBeInTheDocument();
+
+    await userEvent.keyboard(" ");
+
+    expect(await screen.findByText("hola")).toBeInTheDocument();
+    expect(screen.queryByText("hello")).not.toBeInTheDocument();
+  });
+
+  it("renders optional image only on front side when provided", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1")) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: "https://cdn.tenax.dev/media/flashcards/fc_1.png",
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    expect(screen.getByRole("img", { name: /flashcard illustration/i })).toBeInTheDocument();
+
+    await userEvent.click(studyCard);
+
+    expect(await screen.findByText("hello")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /flashcard illustration/i })).not.toBeInTheDocument();
+  });
+
+  it("applies reduced-motion fallback class when user prefers reduced motion", async () => {
+    const previousMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query.includes("prefers-reduced-motion"),
+        media: query,
+        onchange: null,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1")) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    expect(studyCard).toHaveClass("flashcard-study-card--reduced-motion");
+
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: previousMatchMedia,
+    });
+  });
+
   it("updates a flashcard via edit route", async () => {
     const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
       const url = String(input);

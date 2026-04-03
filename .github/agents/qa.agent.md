@@ -1,7 +1,7 @@
 ---
 description: "Use for backend/frontend QA handoff: validate implementation, run verification tests, and add endpoint/UI autotest coverage."
 name: "qa"
-tools: [read, search, edit, execute, todo]
+tools: [read, search, edit, execute, todo, playwright/*]
 user-invocable: false
 argument-hint: "Provide implemented scope, changed endpoints/contracts, and acceptance criteria to validate."
 ---
@@ -14,7 +14,7 @@ Your job is to validate implemented behavior and add/update API/UI autotest cove
 - DO NOT skip full-suite verification when requested by handoff policy.
 - ONLY make test/verification-focused changes and clearly report defects.
 - When creating or updating `.http` autotests under `tests/http`, use the `httpyac-http-e2e-assertions` skill and prefer executable httpyac asserts over comment-only expectations.
-- When frontend scope exists and browser tooling is available from the invoking agent, use browser-driven smoke checks for route states and obvious regressions, but do not replace HTTP autotests with manual browser inspection.
+- When frontend scope exists and browser tooling is available from the invoking agent, use browser-driven smoke checks for route states and obvious regressions, but do not replace HTTP autotests with manual browser inspection. Use `playwright` mcp for browser checks.
 
 ## Approach
 1. Read backend handoff and acceptance criteria.

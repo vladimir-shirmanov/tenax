@@ -135,9 +135,11 @@ frontend_contract_notes:
   interaction_notes:
     - "Front side content: term plus optional imageUrl."
     - "Back side content: definition revealed by explicit user action."
-    - "Interaction surface must be keyboard operable with Enter/Space and visible focus state."
+    - "Interaction surface is a semantic button and remains keyboard operable with Enter/Space and visible focus state."
     - "When prefers-reduced-motion is enabled, use non-spatial state swap instead of flip animation."
     - "Do not require additional API calls to flip between front and back states."
+    - "Loading state, error alert/retry behavior, and edit/delete controls in the same route remain preserved while adding study interaction."
+    - "Only the active card face content is rendered for front/back states, preventing duplicate term/definition exposure during flip."
 
 compatibility_rules:
   additive_only: true
