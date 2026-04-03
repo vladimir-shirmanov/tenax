@@ -85,11 +85,11 @@ export const DeckForm = ({
     : undefined;
 
   const nameDescribedBy = visibleNameError
-    ? "deck-name-help deck-name-error"
-    : "deck-name-help";
+    ? "deck-name-help deck-name-count deck-name-error"
+    : "deck-name-help deck-name-count";
   const descriptionDescribedBy = visibleDescriptionError
-    ? "deck-description-help deck-description-error"
-    : "deck-description-help";
+    ? "deck-description-help deck-description-count deck-description-error"
+    : "deck-description-help deck-description-count";
 
   const submitValues = (submittedValues: DeckFormValues) => {
     if (submitDisabled) {
@@ -137,10 +137,10 @@ export const DeckForm = ({
           maxLength={MAX_NAME_LENGTH}
           {...register("name")}
         />
-        <p id="deck-name-help" className="flat-list__meta" style={{ marginTop: "0.35rem" }}>
+        <p id="deck-name-help" className="field-hint" style={{ marginTop: "0.35rem" }}>
           e.g., Spanish Travel Phrases, JLPT N5 Vocabulary
         </p>
-        <p className="flat-list__meta" style={{ marginTop: "0.2rem" }}>
+        <p id="deck-name-count" className="field-hint" style={{ marginTop: "0.2rem" }}>
           {normalizedValues.name.length}/{MAX_NAME_LENGTH}
         </p>
         {visibleNameError ? (
@@ -162,10 +162,10 @@ export const DeckForm = ({
           maxLength={MAX_DESCRIPTION_LENGTH}
           {...register("description")}
         />
-        <p id="deck-description-help" className="flat-list__meta" style={{ marginTop: "0.35rem" }}>
+        <p id="deck-description-help" className="field-hint" style={{ marginTop: "0.35rem" }}>
           Add context on what you are learning in this deck.
         </p>
-        <p className="flat-list__meta" style={{ marginTop: "0.2rem" }}>
+        <p id="deck-description-count" className="field-hint" style={{ marginTop: "0.2rem" }}>
           {normalizedValues.description.length}/{MAX_DESCRIPTION_LENGTH}
         </p>
         {visibleDescriptionError ? (

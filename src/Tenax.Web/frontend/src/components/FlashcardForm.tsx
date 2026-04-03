@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 type FlashcardFormValues = {
@@ -20,6 +20,7 @@ type FlashcardFormProps = {
   isSubmitting: boolean;
   formError?: string;
   fieldErrors?: Record<string, string | undefined>;
+  disableIfUnchanged?: boolean;
   onSubmit: (payload: {
     term: string;
     definition: string;
@@ -33,16 +34,27 @@ export const FlashcardForm = ({
   isSubmitting,
   formError,
   fieldErrors,
+  disableIfUnchanged,
   onSubmit,
 }: FlashcardFormProps) => {
   const {
     register,
     handleSubmit,
-    formState: { errors, dirtyFields, touchedFields, isValid },
+    control,
+    formState: { errors, dirtyFields, touchedFields, isDirty, isValid },
   } = useForm<FlashcardFormValues>({
     resolver: zodResolver(flashcardFormSchema),
     mode: "all",
     defaultValues: {
+      term: initialValues?.term ?? "",
+      definition: initialValues?.definition ?? "",
+      imageUrl: initialValues?.imageUrl ?? "",
+    },
+  });
+
+  const values = useWatch({
+    control,
+    defaultValue: {
       term: initialValues?.term ?? "",
       definition: initialValues?.definition ?? "",
       imageUrl: initialValues?.imageUrl ?? "",
@@ -63,7 +75,12 @@ export const FlashcardForm = ({
     ? fieldErrors?.imageUrl
     : undefined;
 
-  const submitDisabled = isSubmitting || !isValid;
+  const submitDisabled = isSubmitting || !isValid || (disableIfUnchanged ? !isDirty : false);
+  const termDescribedBy = visibleTermError ? "term-count term-error" : "term-count";
+  const definitionDescribedBy = visibleDefinitionError
+    ? "definition-count definition-error"
+    : "definition-count";
+  const imageUrlDescribedBy = visibleImageUrlError ? "imageUrl-count imageUrl-error" : "imageUrl-count";
   const submitValues = (values: FlashcardFormValues) => {
     if (submitDisabled) {
       return;
@@ -92,10 +109,13 @@ export const FlashcardForm = ({
           id="term"
           className="field-input"
           aria-invalid={Boolean(visibleTermError)}
-          aria-describedby={visibleTermError ? "term-error" : undefined}
+          aria-describedby={termDescribedBy}
           maxLength={200}
           {...register("term")}
         />
+        <p id="term-count" className="field-hint" style={{ marginTop: "0.2rem" }}>
+          {(values?.term ?? "").length}/200
+        </p>
         {visibleTermError ? (
           <p id="term-error" className="field-error">
             {visibleTermError}
@@ -111,10 +131,13 @@ export const FlashcardForm = ({
           id="definition"
           className="field-input field-input--textarea"
           aria-invalid={Boolean(visibleDefinitionError)}
-          aria-describedby={visibleDefinitionError ? "definition-error" : undefined}
+          aria-describedby={definitionDescribedBy}
           maxLength={2000}
           {...register("definition")}
         />
+        <p id="definition-count" className="field-hint" style={{ marginTop: "0.2rem" }}>
+          {(values?.definition ?? "").length}/2000
+        </p>
         {visibleDefinitionError ? (
           <p id="definition-error" className="field-error">
             {visibleDefinitionError}
@@ -131,10 +154,13 @@ export const FlashcardForm = ({
           type="url"
           className="field-input"
           aria-invalid={Boolean(visibleImageUrlError)}
-          aria-describedby={visibleImageUrlError ? "imageUrl-error" : undefined}
+          aria-describedby={imageUrlDescribedBy}
           maxLength={2048}
           {...register("imageUrl")}
         />
+        <p id="imageUrl-count" className="field-hint" style={{ marginTop: "0.2rem" }}>
+          {(values?.imageUrl ?? "").length}/2048
+        </p>
         {visibleImageUrlError ? (
           <p id="imageUrl-error" className="field-error">
             {visibleImageUrlError}

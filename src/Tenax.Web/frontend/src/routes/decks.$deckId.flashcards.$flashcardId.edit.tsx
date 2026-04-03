@@ -31,7 +31,7 @@ export const FlashcardEditRoute = () => {
         </div>
       ) : null}
       {isConcurrencyConflictError(mutation.error) ? (
-        <div className="dialog" style={{ marginTop: 0, marginBottom: "1rem" }}>
+        <div className="alert" style={{ marginTop: 0, marginBottom: "1rem" }}>
           <p className="text-muted" style={{ margin: 0 }}>Reload latest flashcard and retry your changes.</p>
           <button
             type="button"
@@ -59,6 +59,7 @@ export const FlashcardEditRoute = () => {
             definition: getValidationError(mutation.error, "definition"),
             imageUrl: getValidationError(mutation.error, "imageUrl"),
           }}
+          disableIfUnchanged
           onSubmit={(payload) => {
             mutation.mutate(payload, {
               onSuccess: () => {

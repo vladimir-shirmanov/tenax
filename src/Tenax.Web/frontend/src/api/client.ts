@@ -1,6 +1,7 @@
 import { ApiError } from "./errors";
 import { ApiErrorEnvelope } from "./types";
 import { clearAuthSession, readActiveAccessToken } from "./auth-storage";
+import { tryRefreshAccessToken } from "./auth";
 
 declare global {
   interface Window {
@@ -31,23 +32,35 @@ export const requestJson = async <T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> => {
-  const headers = new Headers(init.headers ?? {});
-  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+  const executeRequest = async () => {
+    const headers = new Headers(init.headers ?? {});
+    if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
+    const accessToken = readActiveAccessToken();
+    if (accessToken && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers,
+    });
+
+    const text = await response.text();
+    const payload = text.length > 0 ? JSON.parse(text) : null;
+    return { response, payload };
+  };
+
+  let { response, payload } = await executeRequest();
+
+  if (response.status === 401) {
+    const refreshed = await tryRefreshAccessToken();
+    if (refreshed) {
+      ({ response, payload } = await executeRequest());
+    }
   }
-
-  const accessToken = readActiveAccessToken();
-  if (accessToken && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-  });
-
-  const text = await response.text();
-  const payload = text.length > 0 ? JSON.parse(text) : null;
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {

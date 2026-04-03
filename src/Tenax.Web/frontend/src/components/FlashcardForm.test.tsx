@@ -16,7 +16,7 @@ describe("FlashcardForm", () => {
     expect(screen.queryByText("Definition is required")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /create flashcard/i })).toBeDisabled();
     expect(screen.getByLabelText(/term or phrase/i)).toHaveAttribute("aria-invalid", "false");
-    expect(screen.getByLabelText(/term or phrase/i)).not.toHaveAttribute("aria-describedby", "term-error");
+    expect(screen.getByLabelText(/term or phrase/i)).toHaveAttribute("aria-describedby", "term-count");
   });
 
   it("shows validation error after term field becomes dirty and invalid", async () => {
@@ -35,7 +35,7 @@ describe("FlashcardForm", () => {
 
     expect(screen.getByText("Term is required")).toBeInTheDocument();
     expect(termInput).toHaveAttribute("aria-invalid", "true");
-    expect(termInput).toHaveAttribute("aria-describedby", "term-error");
+    expect(termInput).toHaveAttribute("aria-describedby", "term-count term-error");
   });
 
   it("shows validation error after term field is touched and blurred without typing", async () => {
@@ -55,7 +55,7 @@ describe("FlashcardForm", () => {
 
     expect(screen.getByText("Term is required")).toBeInTheDocument();
     expect(termInput).toHaveAttribute("aria-invalid", "true");
-    expect(termInput).toHaveAttribute("aria-describedby", "term-error");
+    expect(termInput).toHaveAttribute("aria-describedby", "term-count term-error");
   });
 
   it("blocks submit while invalid", async () => {

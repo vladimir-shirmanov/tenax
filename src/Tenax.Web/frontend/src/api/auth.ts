@@ -29,12 +29,12 @@ const readAuthConfig = (): TenaxAuthConfig | null => {
   return readBrowserAuthConfig();
 };
 
-const toMenuLinks = (defaultDeckId: string): AuthMenuLink[] => [
+const toMenuLinks = (): AuthMenuLink[] => [
   { key: "decks", label: "Decks", href: "/decks" },
   {
     key: "flashcards",
     label: "Flashcards",
-    href: `/decks/${defaultDeckId}/flashcards`,
+    href: "/decks",
   },
 ];
 
@@ -61,6 +61,7 @@ const createManagerSettings = (config: TenaxAuthConfig): UserManagerSettings => 
   response_type: "code",
   scope: config.scope ?? DEFAULT_TENAX_AUTH_SCOPE,
   userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+  automaticSilentRenew: true,
   extraQueryParams: config.audience ? { audience: config.audience } : undefined,
 });
 
@@ -275,13 +276,30 @@ const readClientSession = async (): Promise<AuthSessionResponse> => {
       isAuthenticated: true,
       user,
       menu: {
-        visible: true,
-        links: toMenuLinks(config?.defaultDeckId ?? "default"),
-      },
-    };
+          visible: true,
+          links: toMenuLinks(),
+        },
+      };
   } catch (error) {
     logAuthError("session", error);
     throw toAuthError("session_read_failed", "Unable to read authentication session.");
+  }
+};
+
+export const tryRefreshAccessToken = async () => {
+  const manager = getUserManager(false);
+  if (!manager) {
+    return false;
+  }
+
+  try {
+    const user = await manager.signinSilent();
+    syncStorageFromUser(user);
+    return Boolean(user && !user.expired && user.access_token);
+  } catch (error) {
+    logAuthError("silent_renew", error);
+    clearAuthSession();
+    return false;
   }
 };
 

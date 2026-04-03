@@ -15,7 +15,7 @@ export const DeckEditRoute = () => {
   const mutation = useUpdateDeckMutation(deckId);
 
   return (
-    <PageScaffold title="Edit Deck" subtitle="Update deck metadata and keep your library accurate.">
+    <PageScaffold title="Edit deck" subtitle="Update deck metadata and keep your library accurate.">
       <div style={{ marginBottom: "1rem" }}>
         <Link to={`/decks/${deckId}`} className="link-inline">
           Back to detail
@@ -30,7 +30,7 @@ export const DeckEditRoute = () => {
       ) : null}
 
       {isConcurrencyConflictError(mutation.error) ? (
-        <div className="dialog" style={{ marginTop: 0, marginBottom: "1rem" }}>
+        <div className="alert" style={{ marginTop: 0, marginBottom: "1rem" }}>
           <p className="text-muted" style={{ margin: 0 }}>
             Reload latest deck and retry your changes.
           </p>

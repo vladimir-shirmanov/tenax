@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getApiErrorMessage,
   isConcurrencyConflictError,
@@ -7,12 +7,14 @@ import {
 } from "../api/errors";
 import { useDeckListQuery, useDeleteDeckMutation } from "../api/decks";
 import { PageScaffold } from "../components/PageScaffold";
+import { pluralize } from "../app/format";
 
 export const DecksRoute = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const page = Number(searchParams.get("page") ?? "1") || 1;
   const pageSize = Number(searchParams.get("pageSize") ?? "20") || 20;
   const [pendingDeleteDeckId, setPendingDeleteDeckId] = useState<string | null>(null);
+  const deleteDialogRef = useRef<HTMLDialogElement | null>(null);
 
   const listQuery = useDeckListQuery(page, pageSize);
   const deleteMutation = useDeleteDeckMutation(pendingDeleteDeckId ?? "");
@@ -21,6 +23,40 @@ export const DecksRoute = () => {
     () => listQuery.data?.items.find((item) => item.id === pendingDeleteDeckId),
     [listQuery.data?.items, pendingDeleteDeckId]
   );
+
+  const totalPages = listQuery.data ? Math.max(1, Math.ceil(listQuery.data.totalCount / pageSize)) : 1;
+  const canGoPrevious = page > 1;
+  const canGoNext = page < totalPages;
+
+  useEffect(() => {
+    const dialog = deleteDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (pendingDeleteDeck) {
+      if (!dialog.open && typeof dialog.showModal === "function") {
+        dialog.showModal();
+      } else if (!dialog.open) {
+        dialog.setAttribute("open", "true");
+      }
+      dialog.querySelector<HTMLButtonElement>("button")?.focus();
+
+      return () => {
+        if (dialog.open && typeof dialog.close === "function") {
+          dialog.close();
+        } else {
+          dialog.removeAttribute("open");
+        }
+      };
+    }
+
+    if (dialog.open && typeof dialog.close === "function") {
+      dialog.close();
+    } else {
+      dialog.removeAttribute("open");
+    }
+  }, [pendingDeleteDeck]);
 
   return (
     <PageScaffold
@@ -96,17 +132,55 @@ export const DecksRoute = () => {
                 {item.description ?? "No description yet."}
               </p>
               <p className="flat-list__meta" style={{ marginTop: "0.6rem" }}>
-                {item.flashcardCount} flashcards
+                {pluralize(item.flashcardCount, "flashcard")}
               </p>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {pendingDeleteDeck ? (
-        <div role="dialog" aria-modal="true" aria-label="Delete deck confirmation" className="dialog">
+      {listQuery.isSuccess && listQuery.data.totalCount > 0 ? (
+        <div className="section-row" style={{ marginTop: "1rem", justifyContent: "flex-start" }}>
+          <button
+            type="button"
+            className="button button--ghost"
+            disabled={!canGoPrevious}
+            onClick={() => {
+              setSearchParams({ page: String(page - 1), pageSize: String(pageSize) });
+            }}
+          >
+            Previous
+          </button>
           <p className="text-muted" style={{ margin: 0 }}>
-            Are you sure you want to delete "{pendingDeleteDeck.name}"? This will also permanently remove all {pendingDeleteDeck.flashcardCount} flashcards inside. This action cannot be undone.
+            Page {page} of {totalPages}
+          </p>
+          <button
+            type="button"
+            className="button button--ghost"
+            disabled={!canGoNext}
+            onClick={() => {
+              setSearchParams({ page: String(page + 1), pageSize: String(pageSize) });
+            }}
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
+
+      {pendingDeleteDeck ? (
+        <dialog
+          ref={deleteDialogRef}
+          aria-label="Delete deck confirmation"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (!deleteMutation.isPending) {
+              setPendingDeleteDeckId(null);
+            }
+          }}
+        >
+          <p className="text-muted" style={{ margin: 0 }}>
+            Are you sure you want to delete "{pendingDeleteDeck.name}"? This will also permanently remove all{" "}
+            {pluralize(pendingDeleteDeck.flashcardCount, "flashcard")} inside. This action cannot be undone.
           </p>
           {deleteMutation.isError ? (
             <p role="alert" className="field-error">
@@ -143,7 +217,7 @@ export const DecksRoute = () => {
               Cancel
             </button>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </PageScaffold>
   );

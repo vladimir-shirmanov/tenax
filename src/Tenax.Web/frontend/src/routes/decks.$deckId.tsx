@@ -7,13 +7,17 @@ import {
 } from "../api/errors";
 import { useDeckDetailQuery } from "../api/decks";
 import { PageScaffold } from "../components/PageScaffold";
+import { pluralize } from "../app/format";
 
 export const DeckDetailRoute = () => {
   const { deckId = "" } = useParams();
   const detailQuery = useDeckDetailQuery(deckId);
 
   return (
-    <PageScaffold title="Deck detail" subtitle="Review this deck and continue studying or authoring.">
+    <PageScaffold
+      title={detailQuery.data?.name ?? "Deck"}
+      subtitle="Review this deck and continue studying or authoring."
+    >
       <div style={{ marginBottom: "1rem" }}>
         <Link to="/decks" className="link-inline">
           Back to decks
@@ -54,15 +58,12 @@ export const DeckDetailRoute = () => {
 
       {detailQuery.data ? (
         <article className="stack" style={{ gap: "0.8rem" }}>
-          <h2 className="page__title" style={{ fontSize: "clamp(1.45rem, 2vw, 2rem)" }}>
-            {detailQuery.data.name}
-          </h2>
           <p className="text-muted" style={{ margin: 0, maxWidth: "65ch" }}>
             {detailQuery.data.description ?? "No description yet."}
           </p>
           <p className="flat-list__meta" style={{ margin: 0 }}>
             {typeof detailQuery.data.flashcardCount === "number"
-              ? `${detailQuery.data.flashcardCount} flashcards`
+              ? pluralize(detailQuery.data.flashcardCount, "flashcard")
               : "Flashcard count unavailable"}
           </p>
 

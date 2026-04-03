@@ -185,17 +185,28 @@ test.describe("runtime viewport validation in Chromium", () => {
       await assertNoHorizontalOverflow(page);
 
       await page.goto("/decks/deck_123");
-      await expect(page.getByRole("heading", { level: 1, name: /deck detail/i })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: /spanish basics/i })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: /spanish basics/i })).toBeVisible();
       await expect(page.getByRole("link", { name: /edit deck/i })).toBeVisible();
       await assertNoHorizontalOverflow(page);
 
       await page.goto("/decks/deck_123/edit");
-      await expect(page.getByRole("heading", { level: 1, name: /edit deck/i })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: /^edit deck$/i })).toBeVisible();
       await expect(page.getByRole("button", { name: /save changes/i })).toBeDisabled();
       await assertNoHorizontalOverflow(page);
     });
   }
+
+  test("keeps header compact to two rows on 375px viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    const templateAreas = await page.locator(".app-header__inner").evaluate((element) =>
+      window.getComputedStyle(element).gridTemplateAreas
+    );
+
+    expect(templateAreas).toContain("brand controls");
+    expect(templateAreas).toContain("nav nav");
+  });
 
   test("validates keyboard navigation and labeled controls on deck create/edit routes", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -250,14 +261,14 @@ test.describe("flashcard route surfaces", () => {
     await expect(page.getByRole("heading", { level: 1, name: /flashcard detail/i })).toBeVisible();
 
     // Card starts on front face showing term
-    const studyCard = page.getByRole("button", { name: /show definition/i });
+    const studyCard = page.getByRole("button", { name: /press enter or space to flip the flashcard/i });
     await expect(studyCard).toBeVisible();
     await expect(page.getByText("hola")).toBeVisible();
     await expect(page.getByText("hello (informal greeting)")).not.toBeVisible();
 
     // Click to flip to back face
     await studyCard.click();
-    await expect(page.getByRole("button", { name: /show term/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /press enter or space to flip the flashcard/i })).toBeVisible();
     await expect(page.getByText("hello (informal greeting)")).toBeVisible();
     await expect(page.getByText("hola")).not.toBeVisible();
 
@@ -268,19 +279,19 @@ test.describe("flashcard route surfaces", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/decks/deck_123/flashcards/fc_1");
 
-    const studyCard = page.getByRole("button", { name: /show definition/i });
+    const studyCard = page.getByRole("button", { name: /press enter or space to flip the flashcard/i });
     await expect(studyCard).toBeVisible();
     await studyCard.focus();
     await expect(studyCard).toBeFocused();
 
     // Enter flips to back
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("button", { name: /show term/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /press enter or space to flip the flashcard/i })).toBeVisible();
     await expect(page.getByText("hello (informal greeting)")).toBeVisible();
 
     // Space flips back to front
     await page.keyboard.press(" ");
-    await expect(page.getByRole("button", { name: /show definition/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /press enter or space to flip the flashcard/i })).toBeVisible();
     await expect(page.getByText("hola")).toBeVisible();
   });
 

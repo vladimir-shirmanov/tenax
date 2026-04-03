@@ -244,10 +244,7 @@ describe("home route auth behavior", () => {
     const nav = screen.getByRole("navigation", { name: /learning menu/i });
     expect(nav).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Decks" })).toHaveAttribute("href", "/decks");
-    expect(within(nav).getByRole("link", { name: "Flashcards" })).toHaveAttribute(
-      "href",
-      "/decks/default/flashcards"
-    );
+    expect(within(nav).getByRole("link", { name: "Flashcards" })).toHaveAttribute("href", "/decks");
 
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
 

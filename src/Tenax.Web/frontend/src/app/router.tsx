@@ -10,6 +10,10 @@ import { FlashcardDetailRoute } from "../routes/decks.$deckId.flashcards.$flashc
 import { FlashcardEditRoute } from "../routes/decks.$deckId.flashcards.$flashcardId.edit";
 import { AppShell } from "../components/AppShell";
 
+const routerFutureFlags = {
+  v7_startTransition: true,
+} as unknown as NonNullable<Parameters<typeof createBrowserRouter>[1]>["future"];
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -53,4 +57,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+], {
+  future: routerFutureFlags,
+});

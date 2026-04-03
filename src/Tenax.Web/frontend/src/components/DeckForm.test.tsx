@@ -15,7 +15,10 @@ describe("DeckForm", () => {
     expect(screen.queryByText("A deck must have a name to get started.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /create deck/i })).toBeDisabled();
     expect(screen.getByLabelText(/deck name/i)).toHaveAttribute("aria-invalid", "false");
-    expect(screen.getByLabelText(/deck name/i)).toHaveAttribute("aria-describedby", "deck-name-help");
+    expect(screen.getByLabelText(/deck name/i)).toHaveAttribute(
+      "aria-describedby",
+      "deck-name-help deck-name-count"
+    );
   });
 
   it("shows validation error after name field becomes dirty and invalid", async () => {
@@ -34,7 +37,7 @@ describe("DeckForm", () => {
 
     expect(screen.getByText("A deck must have a name to get started.")).toBeInTheDocument();
     expect(nameInput).toHaveAttribute("aria-invalid", "true");
-    expect(nameInput).toHaveAttribute("aria-describedby", "deck-name-help deck-name-error");
+    expect(nameInput).toHaveAttribute("aria-describedby", "deck-name-help deck-name-count deck-name-error");
   });
 
   it("shows validation error after name field is touched and blurred without typing", async () => {
@@ -54,7 +57,7 @@ describe("DeckForm", () => {
 
     expect(screen.getByText("A deck must have a name to get started.")).toBeInTheDocument();
     expect(nameInput).toHaveAttribute("aria-invalid", "true");
-    expect(nameInput).toHaveAttribute("aria-describedby", "deck-name-help deck-name-error");
+    expect(nameInput).toHaveAttribute("aria-describedby", "deck-name-help deck-name-count deck-name-error");
   });
 
   it("blocks submit while invalid", async () => {

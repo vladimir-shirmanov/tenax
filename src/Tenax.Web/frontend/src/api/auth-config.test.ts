@@ -101,4 +101,20 @@ describe("runtime auth config bootstrap", () => {
     });
     expect(window.TENAX_AUTH_CONFIG).toEqual(config);
   });
+
+  it("keeps auth runtime configuration compatible with silent renew", () => {
+    const config = initializeRuntimeAuthConfig({
+      VITE_TENAX_AUTH_AUTHORITY: "https://idp.example.com/realms/tenax/",
+      VITE_TENAX_AUTH_CLIENT_ID: "tenax-spa",
+      VITE_TENAX_AUTH_REDIRECT_URI: "http://localhost:5173/",
+    });
+
+    expect(config).toEqual(
+      expect.objectContaining({
+        authority: "https://idp.example.com/realms/tenax",
+        clientId: "tenax-spa",
+        redirectUri: "http://localhost:5173/",
+      })
+    );
+  });
 });

@@ -18,9 +18,31 @@ describe("flashcard routes", () => {
     jest.restoreAllMocks();
   });
 
+  const mockDeckDetail = (url: string) => {
+    if (url.endsWith("/api/decks/deck_123")) {
+      return jsonResponse(200, {
+        id: "deck_123",
+        name: "Spanish Basics",
+        description: "Everyday greetings",
+        flashcardCount: 1,
+        createdAtUtc: "2026-03-17T09:00:00Z",
+        updatedAtUtc: "2026-03-17T09:45:00Z",
+        createdByUserId: "usr_42",
+        updatedByUserId: "usr_42",
+      });
+    }
+
+    return null;
+  };
+
   it("renders flashcard list success state", async () => {
     jest.spyOn(global, "fetch").mockImplementation((input) => {
       const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
       if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
         return jsonResponse(200, {
           items: [
@@ -52,11 +74,17 @@ describe("flashcard routes", () => {
     expect(screen.getByText(/loading flashcards/i)).toBeInTheDocument();
     expect(await screen.findByText("hola")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /new flashcard/i })).toBeInTheDocument();
+    expect(screen.getByText(/deck: spanish basics/i)).toBeInTheDocument();
   });
 
   it("renders flashcard list empty state", async () => {
     jest.spyOn(global, "fetch").mockImplementation((input) => {
       const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
       if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
         return jsonResponse(200, {
           items: [],
@@ -81,6 +109,11 @@ describe("flashcard routes", () => {
   it("renders flashcard list error state", async () => {
     jest.spyOn(global, "fetch").mockImplementation((input) => {
       const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
       if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
         return jsonResponse(500, {
           code: "server_error",
@@ -106,53 +139,44 @@ describe("flashcard routes", () => {
   });
 
   it("renders recoverable list error for persistence outage with retry", async () => {
-    const fetchMock = jest
-      .spyOn(global, "fetch")
-      .mockImplementationOnce((input) => {
-        const url = String(input);
-        if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+    let listCallCount = 0;
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
+        listCallCount += 1;
+
+        if (listCallCount < 3) {
           return jsonResponse(503, {
             code: "persistence_unavailable",
             message: "Persistence service is temporarily unavailable",
           });
         }
 
-        return jsonResponse(404, { code: "not_found", message: "not found" });
-      })
-      .mockImplementationOnce((input) => {
-        const url = String(input);
-        if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
-          return jsonResponse(503, {
-            code: "persistence_unavailable",
-            message: "Persistence service is temporarily unavailable",
-          });
-        }
+        return jsonResponse(200, {
+          items: [
+            {
+              id: "fc_1",
+              deckId: "deck_123",
+              term: "hola",
+              definitionPreview: "hello",
+              hasImage: false,
+              updatedAtUtc: "2026-03-15T12:00:00Z",
+              updatedByUserId: "usr_1",
+            },
+          ],
+          page: 1,
+          pageSize: 50,
+          totalCount: 1,
+        });
+      }
 
-        return jsonResponse(404, { code: "not_found", message: "not found" });
-      })
-      .mockImplementationOnce((input) => {
-        const url = String(input);
-        if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=50")) {
-          return jsonResponse(200, {
-            items: [
-              {
-                id: "fc_1",
-                deckId: "deck_123",
-                term: "hola",
-                definitionPreview: "hello",
-                hasImage: false,
-                updatedAtUtc: "2026-03-15T12:00:00Z",
-                updatedByUserId: "usr_1",
-              },
-            ],
-            page: 1,
-            pageSize: 50,
-            totalCount: 1,
-          });
-        }
-
-        return jsonResponse(404, { code: "not_found", message: "not found" });
-      });
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
 
     renderRoute(
       "/decks/:deckId/flashcards",
@@ -169,7 +193,7 @@ describe("flashcard routes", () => {
     await userEvent.click(screen.getByRole("button", { name: /retry/i }));
 
     expect(await screen.findByText("hola")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
   it("shows contract validation errors on create", async () => {
@@ -311,7 +335,7 @@ describe("flashcard routes", () => {
       "/decks/deck_123/flashcards/fc_1"
     );
 
-    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    const studyCard = await screen.findByRole("button", { name: /press enter or space to flip the flashcard/i });
     expect(screen.getByText("hola")).toBeInTheDocument();
     expect(screen.queryByText("hello")).not.toBeInTheDocument();
 
@@ -347,7 +371,7 @@ describe("flashcard routes", () => {
       "/decks/deck_123/flashcards/fc_1"
     );
 
-    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    const studyCard = await screen.findByRole("button", { name: /press enter or space to flip the flashcard/i });
     studyCard.focus();
     await userEvent.keyboard("{Enter}");
 
@@ -386,7 +410,7 @@ describe("flashcard routes", () => {
       "/decks/deck_123/flashcards/fc_1"
     );
 
-    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    const studyCard = await screen.findByRole("button", { name: /press enter or space to flip the flashcard/i });
     expect(screen.getByRole("img", { name: /flashcard illustration/i })).toBeInTheDocument();
 
     await userEvent.click(studyCard);
@@ -436,7 +460,7 @@ describe("flashcard routes", () => {
       "/decks/deck_123/flashcards/fc_1"
     );
 
-    const studyCard = await screen.findByRole("button", { name: /show definition/i });
+    const studyCard = await screen.findByRole("button", { name: /press enter or space to flip the flashcard/i });
     expect(studyCard).toHaveClass("flashcard-study-card--reduced-motion");
 
     Object.defineProperty(window, "matchMedia", {
@@ -551,5 +575,35 @@ describe("flashcard routes", () => {
       );
       expect(detailCalls.length).toBeGreaterThanOrEqual(2);
     });
+  });
+
+  it("disables flashcard edit save until form changes", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && !init?.method) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId/edit",
+      <FlashcardEditRoute />,
+      "/decks/deck_123/flashcards/fc_1/edit"
+    );
+
+    expect(await screen.findByRole("button", { name: /save changes/i })).toBeDisabled();
   });
 });

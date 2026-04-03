@@ -49,6 +49,7 @@ describe("deck routes", () => {
     expect(screen.getByText(/loading decks/i)).toBeInTheDocument();
     expect(await screen.findByText("Spanish Basics")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /create deck/i })).toBeInTheDocument();
+    expect(screen.getByText("42 flashcards")).toBeInTheDocument();
   });
 
   it("renders deck list empty state", async () => {
@@ -69,6 +70,39 @@ describe("deck routes", () => {
     renderRoute("/decks", <DecksRoute />, "/decks");
 
     expect(await screen.findByText(/ready to build your vocabulary/i)).toBeInTheDocument();
+  });
+
+  it("renders singular flashcard count in list and delete confirmation", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("/api/decks?page=1&pageSize=20")) {
+        return jsonResponse(200, {
+          items: [
+            {
+              id: "deck_123",
+              name: "Spanish Basics",
+              description: "Everyday greetings",
+              flashcardCount: 1,
+              createdAtUtc: "2026-03-17T09:00:00Z",
+              updatedAtUtc: "2026-03-17T09:45:00Z",
+              createdByUserId: "usr_42",
+              updatedByUserId: "usr_42",
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          totalCount: 1,
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks", <DecksRoute />, "/decks");
+
+    expect(await screen.findByText("1 flashcard")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /delete/i }));
+    expect(await screen.findByText(/remove all 1 flashcard inside/i)).toBeInTheDocument();
   });
 
   it("renders deck list error and supports retry for persistence outage", async () => {
@@ -199,6 +233,7 @@ describe("deck routes", () => {
     renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
 
     expect(await screen.findByRole("heading", { name: "Spanish Basics" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /deck detail/i })).not.toBeInTheDocument();
     expect(screen.getByText(/blank canvas/i)).toBeInTheDocument();
   });
 
@@ -283,5 +318,29 @@ describe("deck routes", () => {
       );
       expect(detailCalls.length).toBeGreaterThanOrEqual(2);
     });
+  });
+
+  it("shows edit deck page title in sentence case", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/decks/deck_123")) {
+        return jsonResponse(200, {
+          id: "deck_123",
+          name: "Spanish Basics",
+          description: "Everyday greetings",
+          flashcardCount: 5,
+          createdAtUtc: "2026-03-17T09:00:00Z",
+          updatedAtUtc: "2026-03-17T09:45:00Z",
+          createdByUserId: "usr_42",
+          updatedByUserId: "usr_42",
+        });
+      }
+
+      return jsonResponse(404, { code: "deck_not_found", message: "Deck not found" });
+    });
+
+    renderRoute("/decks/:deckId/edit", <DeckEditRoute />, "/decks/deck_123/edit");
+    expect(await screen.findByRole("heading", { name: "Edit deck" })).toBeInTheDocument();
   });
 });

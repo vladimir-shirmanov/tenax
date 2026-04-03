@@ -52,10 +52,10 @@ describe("app shell", () => {
         },
         menu: {
           visible: true,
-          links: [
-            { key: "decks", label: "Decks", href: "/decks" },
-            { key: "flashcards", label: "Flashcards", href: "/decks/default/flashcards" },
-          ],
+            links: [
+              { key: "decks", label: "Decks", href: "/decks" },
+              { key: "flashcards", label: "Flashcards", href: "/decks" },
+            ],
         },
       },
       refetch: jest.fn(),

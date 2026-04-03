@@ -257,6 +257,7 @@ body {
   max-width: 62ch;
   color: var(--text-secondary);
   line-height: 1.6;
+  text-wrap: balance;
 }
 
 .page__surface {
@@ -524,6 +525,13 @@ body {
   resize: vertical;
 }
 
+.field-hint {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .field-error {
   margin: 0.4rem 0 0;
   min-height: 1.25rem;
@@ -536,14 +544,6 @@ body {
   background: color-mix(in srgb, var(--surface-elevated) 78%, var(--danger) 22%);
   border-radius: 0.9rem;
   padding: 0.8rem 0.95rem;
-}
-
-.dialog {
-  margin-top: 1.2rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.9rem;
-  background: var(--surface-muted);
-  padding: 0.95rem;
 }
 
 a:focus-visible,
@@ -573,12 +573,42 @@ textarea:focus-visible {
   }
 }
 
+@media (max-width: 23.4375rem) {
+  .app-header__inner {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "brand controls"
+      "nav nav";
+    align-items: center;
+    row-gap: 0.5rem;
+    column-gap: 0.5rem;
+    padding-block: 0.55rem;
+  }
+
+  .brand-link {
+    grid-area: brand;
+  }
+
+  .header-controls {
+    grid-area: controls;
+    justify-content: flex-end;
+  }
+
+  .primary-nav {
+    grid-area: nav;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 @media (min-width: 48rem) {
   .deck-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .flashcard-study-card {
+    display: block;
     max-width: 40rem;
     margin-inline: auto;
     min-height: 26rem;

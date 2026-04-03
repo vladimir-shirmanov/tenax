@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getApiErrorMessage,
   isConcurrencyConflictError,
@@ -10,6 +10,7 @@ import {
   useFlashcardDetailQuery,
 } from "../api/flashcards";
 import { PageScaffold } from "../components/PageScaffold";
+import { formatRelativeTime } from "../app/format";
 
 export const FlashcardDetailRoute = () => {
   const { deckId = "", flashcardId = "" } = useParams();
@@ -19,6 +20,7 @@ export const FlashcardDetailRoute = () => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const detailQuery = useFlashcardDetailQuery(deckId, flashcardId);
   const deleteMutation = useDeleteFlashcardMutation(deckId, flashcardId);
+  const deleteDialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -50,6 +52,36 @@ export const FlashcardDetailRoute = () => {
   useEffect(() => {
     setIsFlipped(false);
   }, [deckId, flashcardId, detailQuery.data?.id]);
+
+  useEffect(() => {
+    const dialog = deleteDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (confirmDelete) {
+      if (!dialog.open && typeof dialog.showModal === "function") {
+        dialog.showModal();
+      } else if (!dialog.open) {
+        dialog.setAttribute("open", "true");
+      }
+      dialog.querySelector<HTMLButtonElement>("button")?.focus();
+
+      return () => {
+        if (dialog.open && typeof dialog.close === "function") {
+          dialog.close();
+        } else {
+          dialog.removeAttribute("open");
+        }
+      };
+    }
+
+    if (dialog.open && typeof dialog.close === "function") {
+      dialog.close();
+    } else {
+      dialog.removeAttribute("open");
+    }
+  }, [confirmDelete]);
 
   return (
     <PageScaffold title="Flashcard detail" subtitle="Review full content and metadata.">
@@ -86,11 +118,10 @@ export const FlashcardDetailRoute = () => {
       ) : null}
 
       {detailQuery.data ? (
-        <article className="flashcard-content">
+        <article>
           <button
             type="button"
             aria-pressed={isFlipped}
-            aria-label={isFlipped ? "Show term" : "Show definition"}
             className={`flashcard-study-card${isFlipped ? " is-flipped" : ""}${prefersReducedMotion ? " flashcard-study-card--reduced-motion" : ""}`}
             onClick={() => {
               setIsFlipped((current) => !current);
@@ -122,17 +153,23 @@ export const FlashcardDetailRoute = () => {
           </button>
 
           <p className="text-muted" style={{ fontSize: "0.82rem" }}>
-            Updated {new Date(detailQuery.data.updatedAtUtc).toLocaleString()}
+            <time dateTime={detailQuery.data.updatedAtUtc}>
+              Updated {formatRelativeTime(detailQuery.data.updatedAtUtc)}
+            </time>
           </p>
         </article>
       ) : null}
 
       {confirmDelete ? (
-        <div
-          role="dialog"
-          aria-modal="true"
+        <dialog
+          ref={deleteDialogRef}
           aria-label="Confirm delete flashcard"
-          className="dialog"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (!deleteMutation.isPending) {
+              setConfirmDelete(false);
+            }
+          }}
         >
           <p className="text-muted" style={{ margin: 0 }}>Delete this flashcard? This cannot be undone.</p>
           {deleteMutation.isError ? (
@@ -170,7 +207,7 @@ export const FlashcardDetailRoute = () => {
               Cancel
             </button>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </PageScaffold>
   );
