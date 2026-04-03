@@ -260,17 +260,18 @@ test.describe("flashcard route surfaces", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: /flashcard detail/i })).toBeVisible();
 
-    // Card starts on front face showing term
+    // Card starts on front face showing term.
+    // Use scoped locators to avoid matching the breadcrumb's last item which also shows the term.
     const studyCard = page.getByRole("button", { name: /press enter or space to flip the flashcard/i });
     await expect(studyCard).toBeVisible();
-    await expect(page.getByText("hola")).toBeVisible();
-    await expect(page.getByText("hello (informal greeting)")).not.toBeVisible();
+    await expect(page.locator(".flashcard-study-card__term")).toBeVisible();
+    await expect(page.locator(".flashcard-study-card__definition")).not.toBeVisible();
 
     // Click to flip to back face
     await studyCard.click();
     await expect(page.getByRole("button", { name: /press enter or space to flip the flashcard/i })).toBeVisible();
-    await expect(page.getByText("hello (informal greeting)")).toBeVisible();
-    await expect(page.getByText("hola")).not.toBeVisible();
+    await expect(page.locator(".flashcard-study-card__definition")).toBeVisible();
+    await expect(page.locator(".flashcard-study-card__term")).not.toBeVisible();
 
     await assertNoHorizontalOverflow(page);
   });
@@ -287,12 +288,12 @@ test.describe("flashcard route surfaces", () => {
     // Enter flips to back
     await page.keyboard.press("Enter");
     await expect(page.getByRole("button", { name: /press enter or space to flip the flashcard/i })).toBeVisible();
-    await expect(page.getByText("hello (informal greeting)")).toBeVisible();
+    await expect(page.locator(".flashcard-study-card__definition")).toBeVisible();
 
     // Space flips back to front
     await page.keyboard.press(" ");
     await expect(page.getByRole("button", { name: /press enter or space to flip the flashcard/i })).toBeVisible();
-    await expect(page.getByText("hola")).toBeVisible();
+    await expect(page.locator(".flashcard-study-card__term")).toBeVisible();
   });
 
   test("renders flashcard create route with labeled form fields and no overflow at 375px", async ({ page }) => {
@@ -327,6 +328,69 @@ test.describe("empty deck state", () => {
     // No deck cards should be in the list
     await expect(page.getByRole("link", { name: /spanish basics/i })).not.toBeVisible();
     await assertNoHorizontalOverflow(page);
+  });
+});
+
+test.describe("breadcrumb navigation", () => {
+  test.beforeEach(async ({ page }) => {
+    await installApiMocks(page);
+    await page.addInitScript(() => {
+      localStorage.removeItem("tenax.theme.preference");
+      sessionStorage.clear();
+    });
+  });
+
+  test("/decks/new shows breadcrumb Decks › New deck above h1", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/new");
+
+    const breadcrumbNav = page.getByRole("navigation", { name: /breadcrumb/i });
+    await expect(breadcrumbNav).toBeVisible();
+
+    // Breadcrumb must contain the <ol> list
+    await expect(breadcrumbNav.locator("ol")).toBeVisible();
+
+    // "Decks" link and "New deck" current item must both be present
+    await expect(breadcrumbNav.getByRole("link", { name: "Decks" })).toBeVisible();
+    await expect(breadcrumbNav.locator('[aria-current="page"]')).toHaveText("New deck");
+
+    // The breadcrumb must appear before the h1 in DOM order
+    const breadcrumbBox = await breadcrumbNav.boundingBox();
+    const h1Box = await page.getByRole("heading", { level: 1, name: /create new deck/i }).boundingBox();
+    expect(breadcrumbBox).not.toBeNull();
+    expect(h1Box).not.toBeNull();
+    expect(breadcrumbBox!.y).toBeLessThan(h1Box!.y);
+  });
+
+  test("/decks/deck_123 shows breadcrumb Decks › Spanish Basics", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123");
+
+    const breadcrumbNav = page.getByRole("navigation", { name: /breadcrumb/i });
+    await expect(breadcrumbNav).toBeVisible();
+    await expect(breadcrumbNav.getByRole("link", { name: "Decks" })).toBeVisible();
+    await expect(breadcrumbNav.locator('[aria-current="page"]')).toHaveText("Spanish Basics");
+  });
+
+  test("/decks/deck_123/flashcards shows full breadcrumb trail with aria-current on Flashcards", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123/flashcards");
+
+    const breadcrumbNav = page.getByRole("navigation", { name: /breadcrumb/i });
+    await expect(breadcrumbNav).toBeVisible();
+    await expect(breadcrumbNav.getByRole("link", { name: "Decks" })).toBeVisible();
+    await expect(breadcrumbNav.getByRole("link", { name: "Spanish Basics" })).toBeVisible();
+    await expect(breadcrumbNav.locator('[aria-current="page"]')).toHaveText("Flashcards");
+  });
+
+  test("breadcrumb Decks link navigates to /decks", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123");
+
+    const breadcrumbNav = page.getByRole("navigation", { name: /breadcrumb/i });
+    await breadcrumbNav.getByRole("link", { name: "Decks" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: /my decks/i })).toBeVisible();
   });
 });
 
