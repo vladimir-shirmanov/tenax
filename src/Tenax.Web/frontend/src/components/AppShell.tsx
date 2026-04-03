@@ -37,12 +37,25 @@ export const AppShell = () => {
               Home
             </NavLink>
             {session?.isAuthenticated ? (
-              <NavLink
-                to="/decks"
-                className={({ isActive }) => `primary-nav__link${isActive ? " is-active" : ""}`}
-              >
-                Decks
-              </NavLink>
+              <>
+                <NavLink
+                  to="/decks"
+                  end
+                  className={`primary-nav__link${
+                    location.pathname.startsWith("/decks") && !location.pathname.includes("/flashcards")
+                      ? " is-active"
+                      : ""
+                  }`}
+                >
+                  Decks
+                </NavLink>
+                <NavLink
+                  to="/decks"
+                  className={`primary-nav__link${location.pathname.includes("/flashcards") ? " is-active" : ""}`}
+                >
+                  Flashcards
+                </NavLink>
+              </>
             ) : null}
           </nav>
 

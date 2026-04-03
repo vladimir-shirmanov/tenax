@@ -29,9 +29,14 @@ export const FlashcardListRoute = () => {
       subtitle="Create and maintain your deck content with quick edit and delete actions."
     >
       <div className="section-row">
-        <p className="text-muted" style={{ margin: 0 }}>
-          Deck: {deckQuery.data?.name ?? deckId}
-        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+          <Link to="/decks" className="link-inline">
+            ← All decks
+          </Link>
+          <p className="text-muted" style={{ margin: 0 }}>
+            {deckQuery.data?.name ?? deckId}
+          </p>
+        </div>
         <Link
           to={`/decks/${deckId}/flashcards/new`}
           className="button button--primary"
