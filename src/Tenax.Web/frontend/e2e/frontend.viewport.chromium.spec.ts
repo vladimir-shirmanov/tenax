@@ -23,6 +23,20 @@ const deckFixture = {
   updatedByUserId: "usr_42",
 };
 
+const flashcardFixture = {
+  id: "fc_1",
+  deckId: "deck_123",
+  term: "hola",
+  definition: "hello (informal greeting)",
+  definitionPreview: "hello (informal greeting)",
+  imageUrl: null,
+  hasImage: false,
+  createdAtUtc: "2026-03-17T09:00:00Z",
+  updatedAtUtc: "2026-03-17T09:45:00Z",
+  createdByUserId: "usr_42",
+  updatedByUserId: "usr_42",
+};
+
 const installApiMocks = async (page: Page) => {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -75,6 +89,54 @@ const installApiMocks = async (page: Page) => {
           ...deckFixture,
           name: "Spanish Basics Updated",
           updatedAtUtc: "2026-03-17T10:00:00Z",
+        }),
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/decks/deck_123/flashcards") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [flashcardFixture],
+          page: 1,
+          pageSize: 50,
+          totalCount: 1,
+        }),
+      });
+      return;
+    }
+
+    if (method === "GET" && path === "/api/decks/deck_123/flashcards/fc_1") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(flashcardFixture),
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+};
+
+const installEmptyDecksApiMocks = async (page: Page) => {
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const method = request.method();
+
+    if (method === "GET" && path === "/api/decks") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [],
+          page: 1,
+          pageSize: 20,
+          totalCount: 0,
         }),
       });
       return;
@@ -159,5 +221,172 @@ test.describe("runtime viewport validation in Chromium", () => {
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: /save changes/i })).toBeFocused();
+  });
+});
+
+test.describe("flashcard route surfaces", () => {
+  test.beforeEach(async ({ page }) => {
+    await installApiMocks(page);
+    await page.addInitScript(() => {
+      localStorage.removeItem("tenax.theme.preference");
+      sessionStorage.clear();
+    });
+  });
+
+  test("renders flashcard list with items and no horizontal overflow at 375px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/decks/deck_123/flashcards");
+
+    await expect(page.getByRole("heading", { level: 1, name: /flashcards/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /new flashcard/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /hola/i })).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("renders flashcard detail with flip card and no horizontal overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123/flashcards/fc_1");
+
+    await expect(page.getByRole("heading", { level: 1, name: /flashcard detail/i })).toBeVisible();
+
+    // Card starts on front face showing term
+    const studyCard = page.getByRole("button", { name: /show definition/i });
+    await expect(studyCard).toBeVisible();
+    await expect(page.getByText("hola")).toBeVisible();
+    await expect(page.getByText("hello (informal greeting)")).not.toBeVisible();
+
+    // Click to flip to back face
+    await studyCard.click();
+    await expect(page.getByRole("button", { name: /show term/i })).toBeVisible();
+    await expect(page.getByText("hello (informal greeting)")).toBeVisible();
+    await expect(page.getByText("hola")).not.toBeVisible();
+
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("flip card is keyboard accessible via Enter and Space", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123/flashcards/fc_1");
+
+    const studyCard = page.getByRole("button", { name: /show definition/i });
+    await expect(studyCard).toBeVisible();
+    await studyCard.focus();
+    await expect(studyCard).toBeFocused();
+
+    // Enter flips to back
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: /show term/i })).toBeVisible();
+    await expect(page.getByText("hello (informal greeting)")).toBeVisible();
+
+    // Space flips back to front
+    await page.keyboard.press(" ");
+    await expect(page.getByRole("button", { name: /show definition/i })).toBeVisible();
+    await expect(page.getByText("hola")).toBeVisible();
+  });
+
+  test("renders flashcard create route with labeled form fields and no overflow at 375px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/decks/deck_123/flashcards/new");
+
+    await expect(page.getByRole("heading", { level: 1, name: /create flashcard/i })).toBeVisible();
+    await expect(page.getByLabel(/term or phrase/i)).toBeVisible();
+    await expect(page.getByLabel(/definition/i)).toBeVisible();
+    await expect(page.getByLabel(/image url/i)).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+  });
+});
+
+test.describe("empty deck state", () => {
+  test.beforeEach(async ({ page }) => {
+    await installEmptyDecksApiMocks(page);
+    await page.addInitScript(() => {
+      localStorage.removeItem("tenax.theme.preference");
+      sessionStorage.clear();
+    });
+  });
+
+  test("renders empty state call to action on deck list when no decks exist", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks");
+
+    await expect(page.getByRole("heading", { level: 1, name: /my decks/i })).toBeVisible();
+    // Empty state heading and CTA must be present
+    await expect(page.getByRole("heading", { name: /ready to build your vocabulary/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /create your first deck/i })).toBeVisible();
+    // No deck cards should be in the list
+    await expect(page.getByRole("link", { name: /spanish basics/i })).not.toBeVisible();
+    await assertNoHorizontalOverflow(page);
+  });
+});
+
+test.describe("theme toggle", () => {
+  test.beforeEach(async ({ page }) => {
+    await installApiMocks(page);
+    await page.addInitScript(() => {
+      localStorage.removeItem("tenax.theme.preference");
+      sessionStorage.clear();
+    });
+  });
+
+  test("theme toggle switches between light and dark modes and persists preference", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+
+    // Verify theme toggle group is present with all three options
+    const themeGroup = page.getByRole("group", { name: /theme preference/i });
+    await expect(themeGroup).toBeVisible();
+    await expect(page.getByRole("button", { name: /system theme/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /light theme/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /dark theme/i })).toBeVisible();
+
+    // Default: System is active (aria-pressed=true)
+    await expect(page.getByRole("button", { name: /system theme/i })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: /dark theme/i })).toHaveAttribute("aria-pressed", "false");
+
+    // Switch to Dark
+    await page.getByRole("button", { name: /dark theme/i }).click();
+    await expect(page.getByRole("button", { name: /dark theme/i })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: /system theme/i })).toHaveAttribute("aria-pressed", "false");
+
+    // data-theme attribute on <html> must switch to dark
+    const htmlTheme = await page.evaluate(() =>
+      document.documentElement.getAttribute("data-theme")
+    );
+    expect(htmlTheme).toBe("dark");
+
+    // Preference must be stored in localStorage
+    const stored = await page.evaluate(() =>
+      localStorage.getItem("tenax.theme.preference")
+    );
+    expect(stored).toBe("dark");
+
+    // Switch to Light
+    await page.getByRole("button", { name: /light theme/i }).click();
+    await expect(page.getByRole("button", { name: /light theme/i })).toHaveAttribute("aria-pressed", "true");
+
+    const lightTheme = await page.evaluate(() =>
+      document.documentElement.getAttribute("data-theme")
+    );
+    expect(lightTheme).toBe("light");
+  });
+
+  test("theme preference is restored from localStorage on page reload", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // Pre-seed dark preference before navigation
+    await page.addInitScript(() => {
+      localStorage.setItem("tenax.theme.preference", "dark");
+    });
+
+    await page.goto("/");
+
+    // Dark button must be active
+    await expect(page.getByRole("button", { name: /dark theme/i })).toHaveAttribute("aria-pressed", "true");
+
+    // HTML element must have data-theme=dark
+    const htmlTheme = await page.evaluate(() =>
+      document.documentElement.getAttribute("data-theme")
+    );
+    expect(htmlTheme).toBe("dark");
   });
 });
