@@ -1,0 +1,122 @@
+contract_version: 1
+feature: "observability-otlp-proxy"
+endpoint:
+  method: "POST"
+  path: "/api/telemetry/traces"
+  owner: "Backend Developer"
+
+observability_profile:
+  implementation_boundary: "Web layer (Tenax.Api — Minimal API endpoint group /api/telemetry)"
+  upstream_dependency: "Aspire OTLP collector — address injected via OTEL_EXPORTER_OTLP_ENDPOINT"
+  named_http_client: "TelemetryOtlpProxy"
+  contract_notes:
+    - "This endpoint is a raw pass-through. It does not parse or validate OTLP payload content."
+    - "Response schema for 204 contains no body — frontend must treat any 2xx as success."
+    - "The named HttpClient TelemetryOtlpProxy MUST be excluded from HttpClientInstrumentation to prevent recursive trace generation."
+    - "Content-Type from the incoming browser request is forwarded unchanged to the upstream OTLP collector."
+
+request:
+  path_params: []
+  query_params: []
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <jwt>"
+      notes: "JWT issued by Keycloak. Validated by the standard ASP.NET Core JWT Bearer middleware before the endpoint handler is invoked."
+    - name: "Content-Type"
+      type: "string"
+      required: true
+      allowed_values:
+        - "application/x-protobuf"
+        - "application/json"
+      notes: "application/x-protobuf for binary OTLP (preferred by OTel SDK default). application/json for OTLP JSON encoding. The header is forwarded as-is to the upstream OTLP collector."
+  body:
+    description: "Raw OTLP ExportTraceServiceRequest payload. The backend does not deserialize or validate this payload — it is forwarded verbatim."
+    encoding:
+      - "application/x-protobuf: binary protobuf encoding of opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest"
+      - "application/json: JSON encoding of the same proto message"
+    notes:
+      - "Payload is produced and batched by the @opentelemetry/sdk-web BatchSpanProcessor."
+      - "Default flush interval is 5 seconds. Batches are sent as a single HTTP POST per flush cycle."
+      - "Maximum payload size is governed by the OTel SDK batch limits (default maxExportBatchSize=512 spans)."
+
+responses:
+  success:
+    status: 204
+    description: "Upstream OTLP collector accepted the payload. No response body."
+    schema: null
+    example: null
+    behavioral_guarantees:
+      - "204 is returned only when the upstream OTLP collector responds with a 2xx status."
+      - "No body is returned. The OTLPTraceExporter in the browser SDK treats 2xx as a successful export and clears the batch."
+
+  errors:
+    - status: 401
+      code: "unauthorized"
+      description: "The Authorization header is absent, malformed, or contains an expired/invalid JWT. The request was rejected before the handler was invoked."
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-4af3b2c1d9e04f7a8b5c6d7e8f901234-1a2b3c4d5e6f7890-01"
+
+    - status: 502
+      code: "otlp_upstream_unavailable"
+      description: "The backend proxy could not reach the upstream OTLP collector, or the collector returned a non-2xx response. The browser-side OTLPTraceExporter will retry on the next flush cycle."
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "otlp_upstream_unavailable"
+        message: "Unable to forward telemetry to the OTLP collector"
+        traceId: "00-7bc9e1f2a3d04c5e6f7a8b9c0d1e2f30-9a8b7c6d5e4f3021-01"
+
+frontend_contract_notes:
+  sdk: "@opentelemetry/exporter-trace-otlp-http — OTLPTraceExporter"
+  exporter_url: "/api/telemetry/traces"
+  url_notes: "Same-origin relative URL. No CORS preflight required. Works in all deployment environments without additional network policy."
+  auth_header_strategy: "Bearer token is read from oidc-client-ts UserManager.getUser() at BatchSpanProcessor flush time (not at SDK init time) to ensure the token is current. A missing or expired token at flush time causes a 401 — spans in that batch are dropped silently."
+  flush_behaviour: "BatchSpanProcessor default: maxExportBatchSize=512, scheduledDelayMillis=5000. Spans accumulate in memory and are POSTed every 5 seconds or when the batch is full."
+  on_502: "OTLPTraceExporter does not retry on 502 within the same flush cycle. The next scheduled flush will attempt export again. Telemetry loss is silent and acceptable for observability infrastructure."
+  on_401: "If the user session has expired the token will be absent. The export silently fails. Session expiry is handled by the OIDC auth layer independently."
+  manual_spans:
+    - name: "study.session.start"
+      tracer: "studySessionTracer (exported from lib/telemetry.ts)"
+      attributes:
+        deckId: { type: string, description: "Identifier of the deck being studied" }
+        cardCount: { type: integer, description: "Total number of cards in the session" }
+        shuffled: { type: boolean, description: "Whether cards were shuffled before the session" }
+    - name: "study.session.complete"
+      tracer: "studySessionTracer (exported from lib/telemetry.ts)"
+      attributes:
+        cardsStudied: { type: integer, description: "Number of cards the user reviewed before ending the session" }
+        durationMs: { type: integer, description: "Wall-clock duration of the session in milliseconds" }
+  excluded_instrumentation:
+    - "Mouse move events"
+    - "Hover / mouseenter / mouseleave events"
+    - "Keydown / keyup / keypress events"
+    - "Scroll events"
+    - "Window resize events"
+    - "Every-click instrumentation"
+  auto_instrumentation:
+    - "All fetch() calls via FetchInstrumentation — traceparent and tracestate headers are injected automatically"
+    - "Covers: oidc-client-ts token requests, TanStack Query API calls, any direct fetch calls"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update (ADR 0016)"
+  notes:
+    - "The request body schema is owned by the OpenTelemetry protobuf specification, not Tenax. Backend must not validate body structure."
+    - "If the upstream OTLP endpoint path changes (e.g., /v1/traces suffix), update TelemetryOtlpProxy base address configuration — no contract change required."
+    - "Adding query parameters or additional response codes requires a contract version bump and ADR 0016 amendment."
