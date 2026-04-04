@@ -54,6 +54,26 @@ public sealed class EfFlashcardRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ListByDeckAsync_WithShuffleAndSeed_ShouldReturnDeterministicSeededOrdering()
+    {
+        await using var dbContext = CreateDbContext();
+        var repository = new EfFlashcardRepository(dbContext);
+
+        var card1 = CreateFlashcard("fc_seed_1", DateTimeOffset.UtcNow.AddMinutes(-5));
+        var card2 = CreateFlashcard("fc_seed_2", DateTimeOffset.UtcNow.AddMinutes(-4));
+        var card3 = CreateFlashcard("fc_seed_3", DateTimeOffset.UtcNow.AddMinutes(-3));
+
+        await repository.AddAsync(card1, CancellationToken.None);
+        await repository.AddAsync(card2, CancellationToken.None);
+        await repository.AddAsync(card3, CancellationToken.None);
+
+        var first = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-123", CancellationToken.None);
+        var second = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-123", CancellationToken.None);
+
+        Assert.Equal(first.Select(card => card.Id), second.Select(card => card.Id));
+    }
+
+    [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenExpectedTimestampIsStale()
     {
         await using var dbContext = CreateDbContext();
