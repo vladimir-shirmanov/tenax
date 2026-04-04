@@ -94,7 +94,13 @@ public sealed class FlashcardService : IFlashcardService
             }
 
             var skip = (input.Page - 1) * input.PageSize;
-            var cards = await _flashcardRepository.ListByDeckAsync(input.DeckId, skip, input.PageSize, cancellationToken);
+            var cards = await _flashcardRepository.ListByDeckAsync(
+                input.DeckId,
+                skip,
+                input.PageSize,
+                input.Shuffle,
+                input.ShuffleSeed,
+                cancellationToken);
             var total = await _flashcardRepository.CountByDeckAsync(input.DeckId, cancellationToken);
 
             var items = cards

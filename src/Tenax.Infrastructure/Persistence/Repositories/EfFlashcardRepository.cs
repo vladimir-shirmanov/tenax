@@ -26,10 +26,31 @@ public sealed class EfFlashcardRepository : IFlashcardRepository
         }
     }
 
-    public async Task<IReadOnlyList<Flashcard>> ListByDeckAsync(string deckId, int skip, int take, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Flashcard>> ListByDeckAsync(
+        string deckId,
+        int skip,
+        int take,
+        bool shuffle,
+        string? shuffleSeed,
+        CancellationToken cancellationToken)
     {
         try
         {
+            if (shuffle && shuffleSeed is not null)
+            {
+                return await _dbContext.Flashcards
+                    .FromSqlInterpolated($"""
+                        SELECT *
+                        FROM flashcards
+                        WHERE deck_id = {deckId}
+                        ORDER BY hashtext(id::text || {shuffleSeed})
+                        LIMIT {take}
+                        OFFSET {skip}
+                        """)
+                    .AsNoTracking()
+                    .ToArrayAsync(cancellationToken);
+            }
+
             return await _dbContext.Flashcards
                 .AsNoTracking()
                 .Where(card => card.DeckId == deckId)
