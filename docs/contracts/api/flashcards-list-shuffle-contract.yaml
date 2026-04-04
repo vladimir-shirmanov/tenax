@@ -1,0 +1,322 @@
+contract_version: 1
+feature: "flashcard-shuffle-server-side-deterministic-batching"
+supersedes: "docs/contracts/api/flashcards-list-contract.yaml"
+endpoint:
+  method: "GET"
+  path: "/api/decks/{deckId}/flashcards"
+  owner: "Backend Developer"
+
+# ─── Change summary vs. flashcards-list-contract.yaml ────────────────────────
+# 1. Two new optional query params added: shuffle (bool), shuffleSeed (string).
+# 2. PageSize maximum reduced from 100 → 50 (BREAKING for callers using 51–100).
+# 3. Shuffle ordering uses PostgreSQL hashtext(id::text || shuffleSeed).
+# 4. Default ordering (shuffle=false) is unchanged: UpdatedAtUtc DESC, Id DESC.
+# 5. Response schema is identical — no new fields added to the 200 body.
+# ─────────────────────────────────────────────────────────────────────────────
+
+persistence_profile:
+  storage_engine: "postgresql"
+  persistence_mode: "durable"
+  implementation_boundary: "Infrastructure (EF Core DbContext + repositories)"
+  contract_notes:
+    - "Response schema remains unchanged during storage-provider migration."
+    - "List reflects committed rows at query execution time."
+    - "Shuffle ordering relies on PostgreSQL built-in hashtext(); no extension required."
+    - "hashtext(id::text || shuffleSeed) is deterministic: same inputs always produce same order."
+
+request:
+  path_params:
+    - name: "deckId"
+      type: "string"
+      required: true
+      description: "UUID of the deck whose flashcards are being listed."
+
+  query_params:
+    - name: "page"
+      type: "integer"
+      required: true
+      minimum: 1
+      description: "1-based page index."
+
+    - name: "pageSize"
+      type: "integer"
+      required: true
+      minimum: 1
+      maximum: 50
+      description: >
+        Number of flashcards per page. Maximum reduced from 100 to 50.
+        Study mode MUST use pageSize=20 with lazy prefetch.
+        Any value > 50 returns 400 validation_error.
+
+    - name: "shuffle"
+      type: "boolean"
+      required: false
+      default: false
+      description: >
+        When true, applies server-side deterministic shuffle using hashtext().
+        Requires shuffleSeed to also be present and non-empty.
+
+    - name: "shuffleSeed"
+      type: "string"
+      required: false
+      description: >
+        Seed string for the deterministic shuffle.
+        Required when shuffle=true; ignored when shuffle=false.
+        Clients MUST generate this once per study session (crypto.randomUUID())
+        and hold it stable for the session duration so prefetch pages are consistent.
+        A missing or empty shuffleSeed when shuffle=true returns 400 validation_error.
+
+  headers:
+    - name: "Authorization"
+      type: "string"
+      required: true
+      format: "Bearer <token>"
+
+responses:
+  success:
+    status: 200
+    behavioral_guarantees:
+      - "When shuffle=false: ordering is deterministic by updatedAtUtc descending, then id descending."
+      - "When shuffle=true: ordering is deterministic by hashtext(id::text || shuffleSeed) ascending."
+      - "Same (deckId, shuffle=true, shuffleSeed) always produces the same card ordering across requests."
+      - "totalCount represents committed rows within the same deck scope at query execution time."
+      - "Pagination metadata (page, pageSize, totalCount) is present in every 200 response."
+    schema:
+      type: object
+      required: ["items", "page", "pageSize", "totalCount"]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              [
+                "id",
+                "deckId",
+                "term",
+                "definitionPreview",
+                "hasImage",
+                "updatedAtUtc",
+                "updatedByUserId"
+              ]
+            properties:
+              id: { type: string }
+              deckId: { type: string }
+              term: { type: string }
+              definitionPreview: { type: string }
+              hasImage: { type: boolean }
+              updatedAtUtc: { type: string, format: date-time }
+              updatedByUserId: { type: ["string", "null"] }
+        page: { type: integer }
+        pageSize: { type: integer }
+        totalCount: { type: integer }
+
+    examples:
+      shuffle_disabled:
+        description: "Default ordered list — shuffle=false (or param omitted), page 1 of 3."
+        value:
+          items:
+            - id: "fc_8f62f5f6"
+              deckId: "deck_123"
+              term: "hola"
+              definitionPreview: "hello"
+              hasImage: true
+              updatedAtUtc: "2026-03-15T12:00:00Z"
+              updatedByUserId: "usr_42"
+            - id: "fc_90b28f34"
+              deckId: "deck_123"
+              term: "adios"
+              definitionPreview: "goodbye"
+              hasImage: false
+              updatedAtUtc: "2026-03-15T11:52:00Z"
+              updatedByUserId: "usr_42"
+          page: 1
+          pageSize: 20
+          totalCount: 47
+
+      shuffle_enabled_page1:
+        description: >
+          Shuffled list — shuffle=true, shuffleSeed=<uuid>, page 1 of 3.
+          Order is determined by hashtext(id::text || shuffleSeed).
+        value:
+          items:
+            - id: "fc_3c41a9b2"
+              deckId: "deck_123"
+              term: "gracias"
+              definitionPreview: "thank you"
+              hasImage: false
+              updatedAtUtc: "2026-03-14T09:30:00Z"
+              updatedByUserId: "usr_42"
+            - id: "fc_8f62f5f6"
+              deckId: "deck_123"
+              term: "hola"
+              definitionPreview: "hello"
+              hasImage: true
+              updatedAtUtc: "2026-03-15T12:00:00Z"
+              updatedByUserId: "usr_42"
+          page: 1
+          pageSize: 20
+          totalCount: 47
+
+      shuffle_enabled_page2:
+        description: >
+          Shuffled list — same seed, page 2 of 3.
+          Deterministic: prefetch can be issued before the user reaches card 15.
+        value:
+          items:
+            - id: "fc_1a2b3c4d"
+              deckId: "deck_123"
+              term: "por favor"
+              definitionPreview: "please"
+              hasImage: false
+              updatedAtUtc: "2026-03-13T08:00:00Z"
+              updatedByUserId: "usr_42"
+          page: 2
+          pageSize: 20
+          totalCount: 47
+
+  errors:
+    - status: 400
+      code: "validation_error"
+      description: >
+        Returned for any of the following violations:
+        - pageSize < 1 or pageSize > 50
+        - page < 1
+        - shuffle=true with shuffleSeed absent or empty string
+      schema:
+        type: object
+        required: ["code", "message", "errors"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+          errors:
+            type: object
+            additionalProperties:
+              type: array
+              items: { type: string }
+      examples:
+        pagesize_exceeded:
+          description: "pageSize > 50"
+          value:
+            code: "validation_error"
+            message: "Request validation failed"
+            traceId: "00-924487f089b54f9a953f0fed00f1819d-57eb8f7357cf2ae4-01"
+            errors:
+              pageSize: ["pageSize must be less than or equal to 50"]
+
+        missing_shuffle_seed:
+          description: "shuffle=true but shuffleSeed not provided"
+          value:
+            code: "validation_error"
+            message: "Request validation failed"
+            traceId: "00-b17a3e1c9f4d4a8b92d0e3f500c1728a-1f3e6a9d2c5b4e7f-01"
+            errors:
+              shuffleSeed: ["shuffleSeed is required when shuffle is true"]
+
+        empty_shuffle_seed:
+          description: "shuffle=true but shuffleSeed is empty string"
+          value:
+            code: "validation_error"
+            message: "Request validation failed"
+            traceId: "00-c29b4f2d0a5e4b9c83e1d4f611d2839b-2e4f7b0e3d6c5f8a-01"
+            errors:
+              shuffleSeed: ["shuffleSeed must not be empty"]
+
+    - status: 401
+      code: "unauthorized"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "unauthorized"
+        message: "Authentication is required"
+        traceId: "00-092f0dd3d84b458f9755d3028e019b39-3d4475cee40323f6-01"
+
+    - status: 403
+      code: "forbidden"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "forbidden"
+        message: "You do not have permission to view this deck"
+        traceId: "00-a92028b4b5074fd0a76e75cdcc87cc68-84f4fa4eca0dd85e-01"
+
+    - status: 404
+      code: "deck_not_found"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "deck_not_found"
+        message: "Deck not found"
+        traceId: "00-fd2f5b4b4f4f4dd1a680e05929f24d7f-9f94cd573fa4d60f-01"
+
+    - status: 503
+      code: "persistence_unavailable"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          traceId: { type: string }
+      example:
+        code: "persistence_unavailable"
+        message: "Persistence service is temporarily unavailable"
+        traceId: "00-52ba67e6f2fe4a819478d5a4e08d2e09-99ec516a620f20c9-01"
+
+frontend_contract_notes:
+  query_key: >
+    ["decks", deckId, "flashcards", { page, pageSize, shuffle, shuffleSeed }]
+    Each (page, shuffleSeed) pair is cached independently.
+    This allows prefetch to populate the TanStack Query cache for page N+1
+    before the user reaches card (N * pageSize * 0.75).
+  cache_policy: >
+    staleTime=60000, retry=1.
+    Invalidate on create/update/delete mutations for matching deckId.
+    On 503 persistence_unavailable, show recoverable error state with manual retry action.
+    shuffleSeed-keyed pages survive shuffle toggle (flip shuffle param, same seed):
+    previously fetched pages remain cached and do not need to be re-fetched if the
+    user toggles shuffle off and back on within the same session.
+  route_usage: "routes/decks.$deckId.study.tsx"
+  study_mode_behaviour:
+    seed_lifecycle: >
+      Generate shuffleSeed = crypto.randomUUID() once, stored in useRef.
+      Never regenerate on re-render or route navigation within the same session.
+    initial_fetch: "page=1, pageSize=20, shuffle=<toggle state>, shuffleSeed=<ref value>"
+    prefetch_trigger: "currentCardIndex / loadedCards.length >= 0.75"
+    in_memory_accumulation: "Concatenate page responses into loadedCards array in order."
+    progress_indicator: "totalCount from first page response; no extra request needed."
+    shuffle_toggle: >
+      Flip shuffle boolean param.
+      Keep same shuffleSeed.
+      Reset currentCardIndex to 0.
+      Clear loadedCards.
+      Re-fetch from page=1.
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  breaking_changes_in_this_version:
+    - description: "pageSize maximum reduced from 100 to 50."
+      impact: "Any caller passing pageSize 51–100 will receive 400 validation_error."
+      mitigation: "Audit all callers before deployment. Authoring list view defaults to pageSize=50 and is unaffected."
+  additive_changes_in_this_version:
+    - description: "New optional query param: shuffle (boolean, default false)."
+      impact: "None for existing callers — omitting the param preserves prior behaviour."
+    - description: "New optional query param: shuffleSeed (string)."
+      impact: "None for existing callers — omitting the param is valid when shuffle=false."
