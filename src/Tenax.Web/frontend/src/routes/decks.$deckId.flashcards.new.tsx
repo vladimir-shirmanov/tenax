@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { getApiErrorMessage, getValidationError } from "../api/errors";
 import { useCreateFlashcardMutation } from "../api/flashcards";
+import { useDeckDetailQuery } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { FlashcardForm } from "../components/FlashcardForm";
 import { PageScaffold } from "../components/PageScaffold";
@@ -8,6 +9,8 @@ import { PageScaffold } from "../components/PageScaffold";
 export const FlashcardCreateRoute = () => {
   const navigate = useNavigate();
   const { deckId = "" } = useParams();
+  const deckQuery = useDeckDetailQuery(deckId);
+  const deckName = deckQuery.data?.name ?? deckId;
   const mutation = useCreateFlashcardMutation(deckId);
 
   return (
@@ -18,7 +21,7 @@ export const FlashcardCreateRoute = () => {
         <Breadcrumb
           items={[
             { label: "Decks", href: "/decks" },
-            { label: deckId, href: `/decks/${deckId}` },
+            { label: deckName, href: `/decks/${deckId}` },
             { label: "Flashcards", href: `/decks/${deckId}/flashcards` },
             { label: "New flashcard" },
           ]}

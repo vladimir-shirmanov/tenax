@@ -8,6 +8,7 @@ import {
   useFlashcardDetailQuery,
   useUpdateFlashcardMutation,
 } from "../api/flashcards";
+import { useDeckDetailQuery } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { FlashcardForm } from "../components/FlashcardForm";
 import { PageScaffold } from "../components/PageScaffold";
@@ -15,6 +16,8 @@ import { PageScaffold } from "../components/PageScaffold";
 export const FlashcardEditRoute = () => {
   const { deckId = "", flashcardId = "" } = useParams();
   const navigate = useNavigate();
+  const deckQuery = useDeckDetailQuery(deckId);
+  const deckName = deckQuery.data?.name ?? deckId;
   const detailQuery = useFlashcardDetailQuery(deckId, flashcardId);
   const mutation = useUpdateFlashcardMutation(deckId, flashcardId);
 
@@ -26,7 +29,7 @@ export const FlashcardEditRoute = () => {
         <Breadcrumb
           items={[
             { label: "Decks", href: "/decks" },
-            { label: deckId, href: `/decks/${deckId}` },
+            { label: deckName, href: `/decks/${deckId}` },
             { label: "Flashcards", href: `/decks/${deckId}/flashcards` },
             { label: detailQuery.data?.term ?? flashcardId, href: `/decks/${deckId}/flashcards/${flashcardId}` },
             { label: "Edit" },

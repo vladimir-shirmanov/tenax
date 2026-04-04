@@ -59,7 +59,7 @@ export const DeckDetailRoute = () => {
           </p>
 
           <div className="section-row" style={{ justifyContent: "flex-start", gap: "0.6rem" }}>
-            <Link to={`/decks/${deckId}/flashcards`} className="button button--primary" aria-disabled={false}>
+            <Link to={`/decks/${deckId}/study`} className="button button--primary" aria-disabled={false}>
               Study now
             </Link>
             <Link to={`/decks/${deckId}/flashcards/new`} className="button button--ghost">

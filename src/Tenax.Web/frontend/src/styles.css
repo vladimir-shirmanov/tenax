@@ -510,8 +510,8 @@ body {
 
 .flashcard-study-card__image {
   width: 100%;
-  max-width: 26rem;
-  max-height: min(50%, 16rem);
+  max-width: 32rem;
+  max-height: clamp(14rem, 40vh, 24rem);
   object-fit: contain;
   border-radius: 0.5rem;
   border: 1px solid var(--border-subtle);
@@ -548,6 +548,99 @@ body {
 
 .flashcard-study-card--reduced-motion .flashcard-study-card__face[aria-hidden="true"] {
   display: none;
+}
+
+.study-mode {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.study-mode__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 0.75rem;
+}
+
+.study-mode__deck-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 20ch;
+}
+
+.study-mode__progress {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.study-mode__shuffle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.study-mode__shuffle.is-active {
+  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.study-mode__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.study-mode__dots {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.study-mode__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--border-subtle);
+  transition: background 200ms, width 200ms, height 200ms;
+  flex-shrink: 0;
+}
+
+.study-mode__dot.is-active {
+  background: var(--accent-primary);
+  width: 0.625rem;
+  height: 0.625rem;
+}
+
+.study-mode__completion {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.study-mode__completion-icon {
+  font-size: 3rem;
+  color: var(--accent-primary);
+  display: block;
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+
+.study-mode__completion-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .form-grid {
@@ -669,6 +762,18 @@ textarea,
   .flashcard-study-card {
     min-height: 24rem;
   }
+
+  .study-mode {
+    padding-top: 1.2rem;
+  }
+
+  .study-mode__deck-name {
+    max-width: 14ch;
+  }
+
+  .study-mode__controls {
+    gap: 0.6rem;
+  }
 }
 
 @media (min-width: 48rem) {
@@ -729,7 +834,8 @@ textarea,
 @media (prefers-reduced-motion: reduce) {
   .flashcard-study-card,
   .flashcard-study-card__inner,
-  .flashcard-study-card__face {
+  .flashcard-study-card__face,
+  .study-mode__dot {
     transition: none;
     animation: none;
   }

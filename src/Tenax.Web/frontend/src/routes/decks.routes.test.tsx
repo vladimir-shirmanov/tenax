@@ -237,6 +237,7 @@ describe("deck routes", () => {
     expect(await screen.findByRole("heading", { name: "Spanish Basics" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /deck detail/i })).not.toBeInTheDocument();
     expect(screen.getByText(/blank canvas/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /study now/i })).toHaveAttribute("href", "/decks/deck_123/study");
   });
 
   it("renders deck detail forbidden and not-found messages", async () => {

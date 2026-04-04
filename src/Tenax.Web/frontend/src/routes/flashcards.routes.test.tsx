@@ -229,6 +229,27 @@ describe("flashcard routes", () => {
     expect(screen.getByText(/definition must be at least 1 character/i)).toBeInTheDocument();
   });
 
+  it("uses deck name breadcrumb in create route", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/new",
+      <FlashcardCreateRoute />,
+      "/decks/deck_123/flashcards/new"
+    );
+
+    expect(await screen.findByRole("link", { name: "Spanish Basics" })).toHaveAttribute("href", "/decks/deck_123");
+    expect(screen.queryByRole("link", { name: "deck_123" })).not.toBeInTheDocument();
+  });
+
   it("deletes a flashcard from detail route with confirmation", async () => {
     const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
       const url = String(input);
@@ -309,6 +330,41 @@ describe("flashcard routes", () => {
       },
       { timeout: 5000 }
     );
+  });
+
+  it("uses deck name breadcrumb in detail route", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1")) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId",
+      <FlashcardDetailRoute />,
+      "/decks/deck_123/flashcards/fc_1"
+    );
+
+    expect(await screen.findByRole("link", { name: "Spanish Basics" })).toHaveAttribute("href", "/decks/deck_123");
+    expect(screen.queryByRole("link", { name: "deck_123" })).not.toBeInTheDocument();
   });
 
   it("toggles from term front to definition back on click", async () => {
@@ -607,5 +663,40 @@ describe("flashcard routes", () => {
     );
 
     expect(await screen.findByRole("button", { name: /save changes/i })).toBeDisabled();
+  });
+
+  it("uses deck name breadcrumb in edit route", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && !init?.method) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId/edit",
+      <FlashcardEditRoute />,
+      "/decks/deck_123/flashcards/fc_1/edit"
+    );
+
+    expect(await screen.findByRole("link", { name: "Spanish Basics" })).toHaveAttribute("href", "/decks/deck_123");
+    expect(screen.queryByRole("link", { name: "deck_123" })).not.toBeInTheDocument();
   });
 });

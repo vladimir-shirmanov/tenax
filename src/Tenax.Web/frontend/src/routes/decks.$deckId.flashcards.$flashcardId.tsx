@@ -9,6 +9,7 @@ import {
   useDeleteFlashcardMutation,
   useFlashcardDetailQuery,
 } from "../api/flashcards";
+import { useDeckDetailQuery } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { PageScaffold } from "../components/PageScaffold";
 import { formatRelativeTime } from "../lib/format";
@@ -20,6 +21,8 @@ export const FlashcardDetailRoute = () => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const detailQuery = useFlashcardDetailQuery(deckId, flashcardId);
+  const deckQuery = useDeckDetailQuery(deckId);
+  const deckName = deckQuery.data?.name ?? deckId;
   const deleteMutation = useDeleteFlashcardMutation(deckId, flashcardId);
   const deleteDialogRef = useRef<HTMLDialogElement | null>(null);
 
@@ -92,7 +95,7 @@ export const FlashcardDetailRoute = () => {
         <Breadcrumb
           items={[
             { label: "Decks", href: "/decks" },
-            { label: deckId, href: `/decks/${deckId}` },
+            { label: deckName, href: `/decks/${deckId}` },
             { label: "Flashcards", href: `/decks/${deckId}/flashcards` },
             { label: detailQuery.data?.term ?? flashcardId },
           ]}
