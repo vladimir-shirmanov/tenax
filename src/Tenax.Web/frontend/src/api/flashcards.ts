@@ -29,27 +29,46 @@ export const flashcardKeys = {
 };
 
 type FlashcardListOptions = {
+  page?: number;
+  pageSize?: number;
   shuffle?: boolean;
   shuffleSeed?: string;
 };
 
 export const useFlashcardListQuery = (
   deckId: string,
-  page: number,
-  pageSize: number,
+  pageOrOptions: number | FlashcardListOptions,
+  pageSize?: number,
   options?: FlashcardListOptions
 ) => {
-  const shuffle = options?.shuffle ?? false;
-  const shuffleSeed = shuffle ? options?.shuffleSeed : undefined;
+  const resolvedOptions =
+    typeof pageOrOptions === "number"
+      ? {
+          page: pageOrOptions,
+          pageSize: pageSize ?? 20,
+          shuffle: options?.shuffle,
+          shuffleSeed: options?.shuffleSeed,
+        }
+      : {
+          page: pageOrOptions.page ?? 1,
+          pageSize: pageOrOptions.pageSize ?? 20,
+          shuffle: pageOrOptions.shuffle,
+          shuffleSeed: pageOrOptions.shuffleSeed,
+        };
+  const page = resolvedOptions.page;
+  const resolvedPageSize = resolvedOptions.pageSize;
+  const shuffle = resolvedOptions.shuffle ?? false;
+  // Normalize: exclude shuffleSeed from key and params when shuffle is false
+  const shuffleSeed = shuffle ? resolvedOptions.shuffleSeed : undefined;
   const shuffleParams = shuffle
     ? `&shuffle=true${shuffleSeed != null ? `&shuffleSeed=${encodeURIComponent(shuffleSeed)}` : ""}`
     : "";
 
   return useQuery({
-    queryKey: flashcardKeys.list(deckId, page, pageSize, shuffle, shuffleSeed),
+    queryKey: flashcardKeys.list(deckId, page, resolvedPageSize, shuffle, shuffleSeed),
     queryFn: () =>
       requestJson<FlashcardListResponse>(
-        `/api/decks/${deckId}/flashcards?page=${page}&pageSize=${pageSize}${shuffleParams}`
+        `/api/decks/${deckId}/flashcards?page=${page}&pageSize=${resolvedPageSize}${shuffleParams}`
       ),
     staleTime: 30_000,
     retry: 1,

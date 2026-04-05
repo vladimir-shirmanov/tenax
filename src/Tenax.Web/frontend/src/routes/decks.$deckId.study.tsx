@@ -8,13 +8,36 @@ import { requestJson } from "../api/client";
 import { FlashcardDetail, FlashcardListItem } from "../api/types";
 import { Breadcrumb } from "../components/Breadcrumb";
 
-const shuffle = <T,>(arr: T[]): T[] => {
-  const next = [...arr];
-  for (let i = next.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [next[i], next[j]] = [next[j], next[i]];
+export const STUDY_BATCH_PAGE_SIZE = 20;
+
+export const accumulateStudyCards = (
+  previousCards: FlashcardListItem[],
+  incomingCards: FlashcardListItem[],
+  page: number
+) => (page === 1 ? incomingCards : [...previousCards, ...incomingCards]);
+
+export const getNextPrefetchPage = (
+  loadedCardsLength: number,
+  totalCount: number,
+  currentCardIndex: number,
+  requestedPages: Set<number>,
+  pageSize: number = STUDY_BATCH_PAGE_SIZE
+) => {
+  if (loadedCardsLength === 0 || totalCount === 0 || loadedCardsLength >= totalCount) {
+    return null;
   }
-  return next;
+
+  const threshold = Math.floor(loadedCardsLength * 0.75);
+  if (currentCardIndex < threshold) {
+    return null;
+  }
+
+  const nextPage = Math.floor(loadedCardsLength / pageSize) + 1;
+  if (requestedPages.has(nextPage)) {
+    return null;
+  }
+
+  return nextPage;
 };
 
 const ShuffleIcon = () => (
@@ -41,46 +64,53 @@ export const StudyModeRoute = () => {
   const { deckId = "" } = useParams();
   const queryClient = useQueryClient();
   const deckQuery = useDeckDetailQuery(deckId);
-  // Fetch all cards in a single request (up to 500). A prior paginated design
-  // contained a feedback loop: loadedCards.length changing re-triggered the
-  // prefetch effect → setCurrentPage incremented → query resolved → repeat (OOM).
-  // Loading everything up-front eliminates that reactive dep chain entirely.
-  const flashcardQuery = useFlashcardListQuery(deckId, 1, 500);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const shuffleSeedRef = useRef(crypto.randomUUID());
+  const requestedPagesRef = useRef(new Set([1]));
+  const [shuffleEnabled, setShuffleEnabled] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadedCards, setLoadedCards] = useState<FlashcardListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const flashcardQuery = useFlashcardListQuery(deckId, {
+    page: currentPage,
+    pageSize: STUDY_BATCH_PAGE_SIZE,
+    shuffle: shuffleEnabled,
+    shuffleSeed: shuffleEnabled ? shuffleSeedRef.current : undefined,
+  });
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [isShuffled, setIsShuffled] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [cards, setCards] = useState<FlashcardListItem[]>([]);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const originalOrderRef = useRef<FlashcardListItem[]>([]);
+  const loadedLengthRef = useRef(0);
+  const totalCountRef = useRef(0);
+  loadedLengthRef.current = loadedCards.length;
+  totalCountRef.current = totalCount;
 
   const deckName = deckQuery.data?.name ?? deckId;
-  const activeCard = cards[currentIndex];
+  const activeCard = loadedCards[currentCardIndex];
   const activeFlashcardId = activeCard?.id ?? "";
   const detailQuery = useFlashcardDetailQuery(deckId, activeFlashcardId);
+  const isComplete = currentCardIndex >= totalCount - 1 && loadedCards.length >= totalCount;
 
   const handleNext = useCallback(() => {
-    if (isComplete || cards.length === 0) {
+    if (isComplete || loadedCards.length === 0) {
       return;
     }
 
-    if (currentIndex === cards.length - 1) {
-      setIsComplete(true);
+    if (currentCardIndex >= loadedCards.length - 1) {
       return;
     }
 
-    setCurrentIndex((index) => index + 1);
+    setCurrentCardIndex((index) => index + 1);
     setIsFlipped(false);
-  }, [cards.length, currentIndex, isComplete]);
+  }, [currentCardIndex, isComplete, loadedCards.length]);
 
   const handlePrevious = useCallback(() => {
-    if (isComplete || currentIndex === 0) {
+    if (isComplete || currentCardIndex === 0) {
       return;
     }
 
-    setCurrentIndex((index) => index - 1);
+    setCurrentCardIndex((index) => index - 1);
     setIsFlipped(false);
-  }, [currentIndex, isComplete]);
+  }, [currentCardIndex, isComplete]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -112,28 +142,47 @@ export const StudyModeRoute = () => {
       return;
     }
 
-    originalOrderRef.current = flashcardQuery.data.items;
-    setCards(flashcardQuery.data.items);
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setIsComplete(false);
-  }, [flashcardQuery.data?.items]);
-
-  useEffect(() => {
-    if (!activeCard || isComplete || currentIndex >= cards.length - 1) {
+    if (flashcardQuery.data.page === 1) {
+      setLoadedCards(flashcardQuery.data.items);
+      setTotalCount(flashcardQuery.data.totalCount);
       return;
     }
 
-    const nextCard = cards[currentIndex + 1];
+    setLoadedCards((previousCards) =>
+      accumulateStudyCards(previousCards, flashcardQuery.data?.items ?? [], flashcardQuery.data?.page ?? 1)
+    );
+  }, [flashcardQuery.data]);
+
+  useEffect(() => {
+    if (!activeCard || isComplete || currentCardIndex >= loadedCards.length - 1) {
+      return;
+    }
+
+    const nextCard = loadedCards[currentCardIndex + 1];
     if (!nextCard?.id) {
       return;
     }
 
     void queryClient.prefetchQuery({
-      queryKey: flashcardKeys.detail(deckId, nextCard.id),
-      queryFn: () => requestJson<FlashcardDetail>(`/api/decks/${deckId}/flashcards/${nextCard.id}`),
+        queryKey: flashcardKeys.detail(deckId, nextCard.id),
+        queryFn: () => requestJson<FlashcardDetail>(`/api/decks/${deckId}/flashcards/${nextCard.id}`),
     });
-  }, [activeCard, cards, currentIndex, deckId, isComplete, queryClient]);
+  }, [activeCard, currentCardIndex, deckId, isComplete, loadedCards, queryClient]);
+
+  useEffect(() => {
+    const nextPage = getNextPrefetchPage(
+      loadedLengthRef.current,
+      totalCountRef.current,
+      currentCardIndex,
+      requestedPagesRef.current
+    );
+    if (nextPage == null) {
+      return;
+    }
+
+    requestedPagesRef.current.add(nextPage);
+    setCurrentPage(nextPage);
+  }, [currentCardIndex]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -169,21 +218,20 @@ export const StudyModeRoute = () => {
   }, [handleNext, handlePrevious, isComplete]);
 
   const handleToggleShuffle = () => {
-    setIsShuffled((current) => {
-      const next = !current;
-      setCards(next ? shuffle(originalOrderRef.current) : [...originalOrderRef.current]);
-      setCurrentIndex(0);
-      setIsFlipped(false);
-      setIsComplete(false);
-      return next;
-    });
+    setShuffleEnabled((current) => !current);
+    setCurrentCardIndex(0);
+    setLoadedCards([]);
+    setCurrentPage(1);
+    requestedPagesRef.current = new Set([1]);
+    setIsFlipped(false);
   };
 
   const handleStudyAgain = () => {
-    setCurrentIndex(0);
+    setCurrentCardIndex(0);
     setIsFlipped(false);
-    setIsComplete(false);
-    setCards(isShuffled ? shuffle(originalOrderRef.current) : [...originalOrderRef.current]);
+    setLoadedCards([]);
+    setCurrentPage(1);
+    requestedPagesRef.current = new Set([1]);
   };
 
   if (flashcardQuery.isLoading) {
@@ -221,7 +269,7 @@ export const StudyModeRoute = () => {
     );
   }
 
-  if (cards.length === 0) {
+  if (loadedCards.length === 0 && totalCount === 0) {
     return (
       <main className="study-mode">
         <div className="page__breadcrumb">
@@ -249,12 +297,12 @@ export const StudyModeRoute = () => {
       <header className="study-mode__header">
         <p className="study-mode__deck-name">{deckName}</p>
         <p className="study-mode__progress" aria-live="polite" aria-atomic="true">
-          {Math.min(currentIndex + 1, cards.length)} / {cards.length}
+          {Math.min(currentCardIndex + 1, totalCount)} / {totalCount}
         </p>
         <button
           type="button"
-          className={`button button--ghost study-mode__shuffle${isShuffled ? " is-active" : ""}`}
-          aria-pressed={isShuffled}
+          className={`button button--ghost study-mode__shuffle${shuffleEnabled ? " is-active" : ""}`}
+          aria-pressed={shuffleEnabled}
           aria-label="Shuffle cards"
           title="Shuffle cards"
           onClick={handleToggleShuffle}
@@ -269,7 +317,7 @@ export const StudyModeRoute = () => {
           <span className="study-mode__completion-icon" aria-hidden="true">✓</span>
           <h2 className="page__title">You finished!</h2>
           <p className="text-muted">
-            You studied {cards.length} card{cards.length === 1 ? "" : "s"} from {deckName}.
+            You studied {totalCount} card{totalCount === 1 ? "" : "s"} from {deckName}.
           </p>
           <div className="study-mode__completion-actions">
             <button type="button" className="button button--primary" onClick={handleStudyAgain}>
@@ -285,7 +333,7 @@ export const StudyModeRoute = () => {
           <button
             type="button"
             aria-pressed={isFlipped}
-            className={`flashcard-study-card${isFlipped ? " is-flipped" : ""}${prefersReducedMotion ? " flashcard-study-card--reduced-motion" : ""}`}
+              className={`flashcard-study-card${isFlipped ? " is-flipped" : ""}${prefersReducedMotion ? " flashcard-study-card--reduced-motion" : ""}`}
             onClick={() => {
               setIsFlipped((current) => !current);
             }}
@@ -319,19 +367,19 @@ export const StudyModeRoute = () => {
               type="button"
               className="button button--ghost"
               onClick={handlePrevious}
-              disabled={currentIndex === 0}
+              disabled={currentCardIndex === 0}
             >
               ← Previous
             </button>
-            {cards.length <= 20 ? (
+            {loadedCards.length <= 20 ? (
               <div className="study-mode__dots" aria-hidden="true">
-                {cards.map((card, index) => (
-                  <span key={card.id} className={`study-mode__dot${index === currentIndex ? " is-active" : ""}`} />
+                {loadedCards.map((card, index) => (
+                  <span key={card.id} className={`study-mode__dot${index === currentCardIndex ? " is-active" : ""}`} />
                 ))}
               </div>
             ) : null}
             <button type="button" className="button button--primary" onClick={handleNext}>
-              {currentIndex === cards.length - 1 ? "Finish" : "Next →"}
+              {currentCardIndex >= totalCount - 1 ? "Finish" : "Next →"}
             </button>
           </div>
         </>
