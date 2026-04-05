@@ -16,7 +16,7 @@ public static class ServiceDefaultsExtensions
     {
         services.AddProblemDetails();
 
-        services.AddOpenTelemetry()
+        var otelBuilder = services.AddOpenTelemetry()
             .WithTracing(tracing =>
             {
                 tracing
@@ -38,8 +38,12 @@ public static class ServiceDefaultsExtensions
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation();
             })
-            .WithLogging()
-            .UseOtlpExporter();
+            .WithLogging();
+
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")))
+        {
+            otelBuilder.UseOtlpExporter();
+        }
 
         services.Configure<OpenTelemetryLoggerOptions>(logging =>
         {
