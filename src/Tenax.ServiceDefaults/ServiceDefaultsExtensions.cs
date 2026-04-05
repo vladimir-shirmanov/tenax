@@ -26,7 +26,8 @@ public static class ServiceDefaultsExtensions
                         options.FilterHttpRequestMessage = request =>
                         {
                             var path = request.RequestUri?.AbsolutePath;
-                            return !string.Equals(path, "/api/telemetry/traces", StringComparison.OrdinalIgnoreCase);
+                            return !string.Equals(path, "/api/telemetry/traces", StringComparison.OrdinalIgnoreCase)
+                                && !string.Equals(path, "/v1/traces", StringComparison.OrdinalIgnoreCase);
                         };
                     })
                     .AddEntityFrameworkCoreInstrumentation();
