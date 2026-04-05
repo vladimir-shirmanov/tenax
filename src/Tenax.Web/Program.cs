@@ -8,6 +8,7 @@ using Tenax.Web.Authentication;
 using Tenax.Web.Errors;
 using Tenax.Web.Features.Decks;
 using Tenax.Web.Features.Flashcards;
+using Tenax.Web.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,7 @@ builder.AddInfrastructure();
 builder.Services.AddJwtBearerAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationEnvelopeResultHandler>();
+builder.Services.AddTelemetryProxy();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -35,6 +37,7 @@ app.UseAuthorization();
 
 app.MapDecksEndpoints();
 app.MapFlashcardsEndpoints();
+app.MapTelemetryProxyEndpoint();
 app.MapGet("/", () => "Tenax API");
 
 app.Run();
