@@ -41,6 +41,10 @@ export const StudyModeRoute = () => {
   const { deckId = "" } = useParams();
   const queryClient = useQueryClient();
   const deckQuery = useDeckDetailQuery(deckId);
+  // Fetch all cards in a single request (up to 500). A prior paginated design
+  // contained a feedback loop: loadedCards.length changing re-triggered the
+  // prefetch effect → setCurrentPage incremented → query resolved → repeat (OOM).
+  // Loading everything up-front eliminates that reactive dep chain entirely.
   const flashcardQuery = useFlashcardListQuery(deckId, 1, 500);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
