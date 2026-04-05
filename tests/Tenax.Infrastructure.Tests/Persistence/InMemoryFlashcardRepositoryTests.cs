@@ -16,7 +16,13 @@ public sealed class InMemoryFlashcardRepositoryTests
         await repository.AddAsync(older, CancellationToken.None);
         await repository.AddAsync(newer, CancellationToken.None);
 
-        var cards = await repository.ListByDeckAsync("deck_owned", 0, 10, CancellationToken.None);
+        var cards = await repository.ListByDeckAsync(
+            deckId: "deck_owned",
+            skip: 0,
+            take: 10,
+            shuffle: false,
+            shuffleSeed: null,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(2, cards.Count);
         Assert.Equal("fc_newer", cards[0].Id);
@@ -32,7 +38,13 @@ public sealed class InMemoryFlashcardRepositoryTests
         await repository.AddAsync(CreateFlashcard("deck_owned", "fc_2", DateTimeOffset.UtcNow.AddMinutes(-2)), CancellationToken.None);
         await repository.AddAsync(CreateFlashcard("deck_owned", "fc_3", DateTimeOffset.UtcNow.AddMinutes(-1)), CancellationToken.None);
 
-        var cards = await repository.ListByDeckAsync("deck_owned", 1, 1, CancellationToken.None);
+        var cards = await repository.ListByDeckAsync(
+            deckId: "deck_owned",
+            skip: 1,
+            take: 1,
+            shuffle: false,
+            shuffleSeed: null,
+            cancellationToken: CancellationToken.None);
 
         Assert.Single(cards);
         Assert.Equal("fc_2", cards[0].Id);
