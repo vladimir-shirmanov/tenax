@@ -67,8 +67,20 @@ public sealed class EfFlashcardRepositoryTests : IAsyncLifetime
         await repository.AddAsync(card2, CancellationToken.None);
         await repository.AddAsync(card3, CancellationToken.None);
 
-        var first = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-123", CancellationToken.None);
-        var second = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-123", CancellationToken.None);
+        var first = await repository.ListByDeckAsync(
+            deckId: "deck_owned",
+            skip: 0,
+            take: 10,
+            shuffle: true,
+            shuffleSeed: "seed-123",
+            cancellationToken: CancellationToken.None);
+        var second = await repository.ListByDeckAsync(
+            deckId: "deck_owned",
+            skip: 0,
+            take: 10,
+            shuffle: true,
+            shuffleSeed: "seed-123",
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(first.Select(card => card.Id), second.Select(card => card.Id));
     }
