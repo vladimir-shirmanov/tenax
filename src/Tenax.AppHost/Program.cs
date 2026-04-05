@@ -11,7 +11,9 @@ var tenaxDatabase = postgres.AddDatabase("Tenax", "tenax");
 
 var web = builder.AddProject<Projects.Tenax_Web>("tenax-web")
     .WithReference(tenaxDatabase)
-    .WaitFor(tenaxDatabase);
+    .WaitFor(tenaxDatabase)
+    .WithOtlpExporter()
+    .WithEnvironment("OTEL_SERVICE_NAME", "tenax-web");
 
 if (isDevelopment)
 {
