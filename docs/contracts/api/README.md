@@ -33,6 +33,7 @@ The flashcard authoring and management epic is implemented against these contrac
 - `flashcards-list-contract.yaml`
 	- API endpoint: `GET /api/decks/{deckId}/flashcards`
 	- Frontend route usage: `routes/decks.$deckId.flashcards.index.tsx`
+	- **Superseded** for study mode and any caller needing shuffle; see `flashcards-list-shuffle-contract.yaml` below.
 - `flashcards-get-detail-contract.yaml`
 	- API endpoint: `GET /api/decks/{deckId}/flashcards/{flashcardId}`
 	- Frontend route usage: `routes/decks.$deckId.flashcards.$flashcardId.tsx`
@@ -115,6 +116,21 @@ Operational reference:
 		- Back-side definition reveal interaction.
 		- Keyboard parity (`Enter`/`Space`) and reduced-motion-compatible state transition behavior.
 	- Related ADR: `docs/adr/0015-flashcard-study-flip-interaction-contract-first-boundary.md`.
+
+## Flashcard Shuffle / Study Mode Coverage (Implemented)
+
+- `flashcards-list-shuffle-contract.yaml`
+	- API endpoint: `GET /api/decks/{deckId}/flashcards`
+	- Supersedes: `flashcards-list-contract.yaml`
+	- Frontend route usage: `routes/decks.$deckId.study.tsx`
+	- Breaking changes in this version:
+		- `pageSize` maximum reduced from **100 → 50**. Callers passing `pageSize` 51–100 receive `400 validation_error`. Authoring list view defaults to `pageSize=50` and is unaffected.
+	- Additive changes in this version:
+		- New optional query param `shuffle` (boolean, default `false`): enables server-side deterministic shuffle via `hashtext(id::text || shuffleSeed)`.
+		- New optional query param `shuffleSeed` (string): required when `shuffle=true`; ignored when `shuffle=false`. Missing or empty seed with `shuffle=true` returns `400 validation_error`.
+	- Response schema: **unchanged** — no new fields added to the `200` body.
+	- Related ADR: `docs/adr/0017-flashcard-shuffle-server-side-deterministic-batching.md`.
+	- API notes: `docs/api-notes/flashcards-list-shuffle.md`.
 
 ### Contract-First Alignment Notes
 
