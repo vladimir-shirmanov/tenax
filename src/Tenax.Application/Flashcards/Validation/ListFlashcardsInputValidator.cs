@@ -17,7 +17,7 @@ public sealed class ListFlashcardsInputValidator : AbstractValidator<ListFlashca
 
         RuleFor(input => input.PageSize)
             .GreaterThanOrEqualTo(1)
-            .LessThanOrEqualTo(50);
+            .LessThanOrEqualTo(500);
 
         When(x => x.Shuffle, () =>
         {

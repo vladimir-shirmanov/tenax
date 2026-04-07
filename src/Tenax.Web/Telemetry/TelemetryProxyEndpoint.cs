@@ -37,10 +37,9 @@ public static class TelemetryProxyEndpoint
             return OtlpUnavailable(context);
         }
 
-        var payload = await ReadRequestBodyAsync(request, cancellationToken);
         using var forward = new HttpRequestMessage(HttpMethod.Post, upstreamUri)
         {
-            Content = new ByteArrayContent(payload)
+            Content = new StreamContent(request.Body)
         };
 
         if (!string.IsNullOrWhiteSpace(request.ContentType))
@@ -50,7 +49,10 @@ public static class TelemetryProxyEndpoint
 
         try
         {
-            using var upstreamResponse = await client.SendAsync(forward, cancellationToken);
+            using var upstreamResponse = await client.SendAsync(
+                forward,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
             return upstreamResponse.IsSuccessStatusCode
                 ? TypedResults.NoContent()
                 : OtlpUnavailable(context);
@@ -65,13 +67,6 @@ public static class TelemetryProxyEndpoint
         }
     }
 
-    private static async Task<byte[]> ReadRequestBodyAsync(HttpRequest request, CancellationToken cancellationToken)
-    {
-        await using var buffer = new MemoryStream();
-        await request.Body.CopyToAsync(buffer, cancellationToken);
-        return buffer.ToArray();
-    }
-
     private static Uri? ResolveTracesUri(Uri? baseAddress)
     {
         if (baseAddress is null)
@@ -82,7 +77,12 @@ public static class TelemetryProxyEndpoint
         var path = baseAddress.AbsolutePath.TrimEnd('/');
         if (path.EndsWith("/v1/traces", StringComparison.OrdinalIgnoreCase))
         {
-            return baseAddress;
+            var builder = new UriBuilder(baseAddress)
+            {
+                Path = path
+            };
+
+            return builder.Uri;
         }
 
         return new Uri(baseAddress, "v1/traces");

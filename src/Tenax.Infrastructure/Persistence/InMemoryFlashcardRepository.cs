@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using Tenax.Application.Abstractions.Persistence;
 using Tenax.Domain.Flashcards;
 
@@ -30,7 +32,9 @@ public sealed class InMemoryFlashcardRepository : IFlashcardRepository
         }
 
         var cards = (shuffle && !string.IsNullOrWhiteSpace(shuffleSeed)
-                ? deckCards.Values.OrderBy(card => $"{card.Id}{shuffleSeed}", StringComparer.Ordinal)
+                ? deckCards.Values
+                    .OrderBy(card => ComputeDeterministicShuffleKey(card.Id, shuffleSeed), StringComparer.Ordinal)
+                    .ThenBy(card => card.Id, StringComparer.Ordinal)
                 : deckCards.Values.OrderByDescending(card => card.UpdatedAtUtc).ThenByDescending(card => card.Id))
             .Skip(skip)
             .Take(take)
@@ -99,5 +103,12 @@ public sealed class InMemoryFlashcardRepository : IFlashcardRepository
         }
 
         return Task.FromResult(deckCards.TryRemove(flashcardId, out _));
+    }
+
+    private static string ComputeDeterministicShuffleKey(string flashcardId, string shuffleSeed)
+    {
+        var bytes = Encoding.UTF8.GetBytes($"{shuffleSeed}:{flashcardId}");
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
     }
 }

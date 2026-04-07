@@ -43,7 +43,7 @@ public sealed class EfFlashcardRepository : IFlashcardRepository
                         SELECT *
                         FROM flashcards
                         WHERE deck_id = {deckId}
-                        ORDER BY hashtext(id::text || {shuffleSeed})
+                        ORDER BY hashtext(id::text || {shuffleSeed}), id
                         LIMIT {take}
                         OFFSET {skip}
                         """)

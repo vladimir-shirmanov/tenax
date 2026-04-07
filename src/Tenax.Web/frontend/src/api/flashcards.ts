@@ -20,8 +20,10 @@ import {
 export const flashcardKeys = {
   all: ["flashcards"] as const,
   listRoot: (deckId: string) => [...flashcardKeys.all, "list", deckId] as const,
-  list: (deckId: string, page: number, pageSize: number, shuffle = false, shuffleSeed?: string) =>
-    [...flashcardKeys.listRoot(deckId), { page, pageSize, shuffle, shuffleSeed }] as const,
+  list: (deckId: string, page: number, pageSize: number, shuffle = false, shuffleSeed?: string) => {
+    const normalizedShuffleSeed = shuffle ? shuffleSeed : undefined;
+    return [...flashcardKeys.listRoot(deckId), { page, pageSize, shuffle, shuffleSeed: normalizedShuffleSeed }] as const;
+  },
   detail: (deckId: string, flashcardId: string) =>
     [...flashcardKeys.all, "detail", deckId, flashcardId] as const,
 };
@@ -38,7 +40,7 @@ export const useFlashcardListQuery = (
   options?: FlashcardListOptions
 ) => {
   const shuffle = options?.shuffle ?? false;
-  const shuffleSeed = options?.shuffleSeed;
+  const shuffleSeed = shuffle ? options?.shuffleSeed : undefined;
   const shuffleParams = shuffle
     ? `&shuffle=true${shuffleSeed != null ? `&shuffleSeed=${encodeURIComponent(shuffleSeed)}` : ""}`
     : "";
