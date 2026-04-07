@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using Tenax.Application.Abstractions.Persistence;
 using Tenax.Domain.Flashcards;
 
@@ -16,16 +18,24 @@ public sealed class InMemoryFlashcardRepository : IFlashcardRepository
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<Flashcard>> ListByDeckAsync(string deckId, int skip, int take, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<Flashcard>> ListByDeckAsync(
+        string deckId,
+        int skip,
+        int take,
+        bool shuffle,
+        string? shuffleSeed,
+        CancellationToken cancellationToken)
     {
         if (!_store.TryGetValue(deckId, out var deckCards))
         {
             return Task.FromResult<IReadOnlyList<Flashcard>>(Array.Empty<Flashcard>());
         }
 
-        var cards = deckCards.Values
-            .OrderByDescending(card => card.UpdatedAtUtc)
-            .ThenByDescending(card => card.Id)
+        var cards = (shuffle && !string.IsNullOrWhiteSpace(shuffleSeed)
+                ? deckCards.Values
+                    .OrderBy(card => ComputeDeterministicShuffleKey(card.Id, shuffleSeed), StringComparer.Ordinal)
+                    .ThenBy(card => card.Id, StringComparer.Ordinal)
+                : deckCards.Values.OrderByDescending(card => card.UpdatedAtUtc).ThenByDescending(card => card.Id))
             .Skip(skip)
             .Take(take)
             .ToArray();
@@ -93,5 +103,12 @@ public sealed class InMemoryFlashcardRepository : IFlashcardRepository
         }
 
         return Task.FromResult(deckCards.TryRemove(flashcardId, out _));
+    }
+
+    private static string ComputeDeterministicShuffleKey(string flashcardId, string shuffleSeed)
+    {
+        var bytes = Encoding.UTF8.GetBytes($"{shuffleSeed}:{flashcardId}");
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
     }
 }

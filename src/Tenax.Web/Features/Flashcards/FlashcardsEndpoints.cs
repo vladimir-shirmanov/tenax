@@ -84,12 +84,14 @@ public static class FlashcardsEndpoints
         string deckId,
         int? page,
         int? pageSize,
+        bool? shuffle,
+        string? shuffleSeed,
         IFlashcardService service,
         HttpContext context,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId(context.User);
-        var result = await service.ListAsync(new ListFlashcardsInput(deckId, page ?? 1, pageSize ?? 50, userId), cancellationToken);
+        var result = await service.ListAsync(new ListFlashcardsInput(deckId, page ?? 1, pageSize ?? 50, userId, shuffle ?? false, shuffleSeed), cancellationToken);
 
         return result.IsSuccess
             ? TypedResults.Ok(result.Value)

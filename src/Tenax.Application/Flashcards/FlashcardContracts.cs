@@ -4,7 +4,7 @@ public sealed record CreateFlashcardInput(string DeckId, string Term, string Def
 
 public sealed record UpdateFlashcardInput(string DeckId, string FlashcardId, string Term, string Definition, string? ImageUrl, string UserId);
 
-public sealed record ListFlashcardsInput(string DeckId, int Page, int PageSize, string UserId);
+public sealed record ListFlashcardsInput(string DeckId, int Page, int PageSize, string UserId, bool Shuffle = false, string? ShuffleSeed = null);
 
 public sealed record GetFlashcardDetailInput(string DeckId, string FlashcardId, string UserId);
 

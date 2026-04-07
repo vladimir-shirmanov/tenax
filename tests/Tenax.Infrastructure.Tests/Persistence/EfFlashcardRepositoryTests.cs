@@ -40,7 +40,13 @@ public sealed class EfFlashcardRepositoryTests : IAsyncLifetime
         await repository.AddAsync(older, CancellationToken.None);
         await repository.AddAsync(newer, CancellationToken.None);
 
-        var cards = await repository.ListByDeckAsync("deck_owned", 0, 10, CancellationToken.None);
+        var cards = await repository.ListByDeckAsync(
+            deckId: "deck_owned",
+            skip: 0,
+            take: 10,
+            shuffle: false,
+            shuffleSeed: null,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(2, cards.Count);
         Assert.Equal("fc_newer", cards[0].Id);
@@ -69,6 +75,32 @@ public sealed class EfFlashcardRepositoryTests : IAsyncLifetime
         var secondUpdate = await repository.UpdateAsync(card, staleTimestamp, CancellationToken.None);
 
         Assert.False(secondUpdate);
+    }
+
+    [Fact]
+    public async Task ListByDeckAsync_WhenShuffleEnabled_ShouldBeDeterministicForSameSeed()
+    {
+        await using var dbContext = CreateDbContext();
+        var repository = new EfFlashcardRepository(dbContext);
+        await SeedDeckAsync(repository, "deck_owned");
+
+        var first = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-a", CancellationToken.None);
+        var second = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-a", CancellationToken.None);
+
+        Assert.Equal(first.Select(card => card.Id), second.Select(card => card.Id));
+    }
+
+    [Fact]
+    public async Task ListByDeckAsync_WhenShuffleEnabled_ShouldProduceDifferentOrderForDifferentSeeds()
+    {
+        await using var dbContext = CreateDbContext();
+        var repository = new EfFlashcardRepository(dbContext);
+        await SeedDeckAsync(repository, "deck_owned");
+
+        var first = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-a", CancellationToken.None);
+        var second = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-b", CancellationToken.None);
+
+        Assert.NotEqual(first.Select(card => card.Id), second.Select(card => card.Id));
     }
 
     [Fact]
@@ -114,5 +146,25 @@ public sealed class EfFlashcardRepositoryTests : IAsyncLifetime
             updatedAtUtc,
             "usr_42",
             "usr_42");
+    }
+
+    private static async Task SeedDeckAsync(EfFlashcardRepository repository, string deckId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 6; i++)
+        {
+            await repository.AddAsync(
+                new Flashcard(
+                    $"fc_{i}",
+                    deckId,
+                    "term",
+                    "definition",
+                    null,
+                    now.AddMinutes(-10).AddSeconds(i),
+                    now.AddSeconds(i),
+                    "usr_42",
+                    "usr_42"),
+                CancellationToken.None);
+        }
     }
 }
