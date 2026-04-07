@@ -133,18 +133,17 @@ public sealed class TelemetryProxyEndpointsTests : IClassFixture<CustomWebApplic
         public string? LastRequestContentType { get; private set; }
         public byte[]? LastRequestBody { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequestPath = request.RequestUri?.AbsolutePath;
             LastRequestContentType = request.Content?.Headers.ContentType?.MediaType;
-            // Capture bytes synchronously before returning to prevent ObjectDisposedException:
-            // HttpClient may dispose ByteArrayContent after the handler's Task completes;
-            // an async overload can yield back to the caller before the bytes are read.
+            // Await the read before returning so the bytes are captured before HttpClient
+            // can dispose the content, while avoiding sync-over-async thread pool starvation.
             LastRequestBody = request.Content is null
                 ? []
-                : request.Content.ReadAsByteArrayAsync(cancellationToken).GetAwaiter().GetResult();
+                : await request.Content.ReadAsByteArrayAsync(cancellationToken);
 
-            return Task.FromResult(_responseFactory(request, cancellationToken));
+            return _responseFactory(request, cancellationToken);
         }
     }
 }

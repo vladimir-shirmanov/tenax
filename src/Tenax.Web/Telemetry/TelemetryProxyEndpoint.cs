@@ -4,7 +4,7 @@ namespace Tenax.Web.Telemetry;
 
 public static class TelemetryProxyEndpoint
 {
-    private const string TelemetryProxyClientName = "TelemetryOtlpProxy";
+    private const string TelemetryProxyClientName = TelemetryConstants.ProxyClientName;
     private const string OtlpUnavailableCode = "otlp_upstream_unavailable";
     private const string OtlpUnavailableMessage = "Unable to forward telemetry to the OTLP collector";
 
