@@ -28,6 +28,13 @@ describe("flashcard list query", () => {
       { page: 1, pageSize: 20, shuffle: false, shuffleSeed: undefined },
     ]);
 
+    expect(flashcardKeys.list("deck_123", 1, 20, false, "seed-ignored")).toEqual([
+      "flashcards",
+      "list",
+      "deck_123",
+      { page: 1, pageSize: 20, shuffle: false, shuffleSeed: undefined },
+    ]);
+
     expect(flashcardKeys.list("deck_123", 2, 20, true, "seed-1")).toEqual([
       "flashcards",
       "list",

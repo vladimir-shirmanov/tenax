@@ -93,6 +93,33 @@ public sealed class TelemetryProxyEndpointsTests : IClassFixture<CustomWebApplic
         Assert.Equal("/v1/traces", handler.LastRequestPath);
     }
 
+    [Fact]
+    public async Task PostTraces_WhenBaseAddressAlreadyPointsToTracesWithTrailingSlash_ShouldNormalizePath()
+    {
+        var handler = new CapturingHandler((_, _) => new HttpResponseMessage(HttpStatusCode.Accepted));
+
+        using var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddHttpClient("TelemetryOtlpProxy")
+                    .ConfigurePrimaryHttpMessageHandler(() => handler)
+                    .ConfigureHttpClient(httpClient => httpClient.BaseAddress = new Uri("http://otel-collector:4318/v1/traces/"));
+            });
+        }).CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/telemetry/traces")
+        {
+            Content = new ByteArrayContent([0x0A, 0x01, 0x02])
+        };
+        request.Content.Headers.ContentType = new("application/x-protobuf");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("/v1/traces", handler.LastRequestPath);
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> _responseFactory;

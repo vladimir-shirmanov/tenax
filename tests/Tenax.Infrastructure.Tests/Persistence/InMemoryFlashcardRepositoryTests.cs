@@ -65,6 +65,30 @@ public sealed class InMemoryFlashcardRepositoryTests
         Assert.Null(missing);
     }
 
+    [Fact]
+    public async Task ListByDeckAsync_WhenShuffleEnabled_ShouldBeDeterministicForSameSeed()
+    {
+        var repository = new InMemoryFlashcardRepository();
+        await SeedDeckAsync(repository, "deck_owned");
+
+        var first = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-a", CancellationToken.None);
+        var second = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-a", CancellationToken.None);
+
+        Assert.Equal(first.Select(card => card.Id), second.Select(card => card.Id));
+    }
+
+    [Fact]
+    public async Task ListByDeckAsync_WhenShuffleEnabled_ShouldProduceDifferentOrderForDifferentSeeds()
+    {
+        var repository = new InMemoryFlashcardRepository();
+        await SeedDeckAsync(repository, "deck_owned");
+
+        var first = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-a", CancellationToken.None);
+        var second = await repository.ListByDeckAsync("deck_owned", 0, 10, true, "seed-b", CancellationToken.None);
+
+        Assert.NotEqual(first.Select(card => card.Id), second.Select(card => card.Id));
+    }
+
     private static Flashcard CreateFlashcard(string deckId, string id, DateTimeOffset updatedAtUtc)
     {
         return new Flashcard(
@@ -77,5 +101,16 @@ public sealed class InMemoryFlashcardRepositoryTests
             updatedAtUtc,
             "usr_42",
             "usr_42");
+    }
+
+    private static async Task SeedDeckAsync(InMemoryFlashcardRepository repository, string deckId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 0; i < 6; i++)
+        {
+            await repository.AddAsync(
+                CreateFlashcard(deckId, $"fc_{i}", now.AddSeconds(i)),
+                CancellationToken.None);
+        }
     }
 }

@@ -269,7 +269,7 @@ public sealed class FlashcardsEndpointsTests : IClassFixture<CustomWebApplicatio
     [Fact]
     public async Task List_InvalidPageSize_ShouldReturn400ValidationEnvelope()
     {
-        var response = await _client.GetAsync("/api/decks/deck_owned/flashcards?page=1&pageSize=101");
+        var response = await _client.GetAsync("/api/decks/deck_owned/flashcards?page=1&pageSize=501");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
