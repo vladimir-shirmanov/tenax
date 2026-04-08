@@ -38,14 +38,15 @@ export const DeckDetailRoute = () => {
     if (deleteState === "confirming") {
       confirmDeleteRef.current?.focus();
     }
-    if (deleteState === "idle" && previousDeleteState === "confirming") {
+    if (deleteState === "idle" && previousDeleteState !== "idle") {
       deleteTriggerRef.current?.focus();
     }
     previousDeleteStateRef.current = deleteState;
   }, [deleteState]);
 
   useEffect(() => {
-    if (deleteState !== "confirming") {
+    const escapableStates = ["confirming", "error_concurrency", "error_persistence", "error_generic"] as const;
+    if (!(escapableStates as readonly string[]).includes(deleteState)) {
       return;
     }
 

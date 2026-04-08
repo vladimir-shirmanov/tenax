@@ -618,6 +618,42 @@ describe("deck routes", () => {
     expect(deleteCalls).toHaveLength(2);
   });
 
+  it("Escape key from error_persistence state returns to idle and focuses Delete deck button", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123") && !init?.method) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, { items: [], page: 1, pageSize: 10, totalCount: 0 });
+      }
+
+      if (url.endsWith("/api/decks/deck_123") && init?.method === "DELETE") {
+        return jsonResponse(503, {
+          code: "persistence_unavailable",
+          message: "Service unavailable",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    await userEvent.click(await screen.findByRole("button", { name: /delete deck/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    expect(await screen.findByText(/service temporarily unavailable\. please try again\./i)).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /confirm delete/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /delete deck/i })).toHaveFocus();
+  });
+
   it("navigates to /decks after successful deck delete", async () => {
     jest.spyOn(global, "fetch").mockImplementation((input, init) => {
       const url = String(input);
