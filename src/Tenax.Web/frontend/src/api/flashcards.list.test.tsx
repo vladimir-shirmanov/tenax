@@ -89,4 +89,29 @@ describe("flashcard list query", () => {
       "/api/decks/deck_123/flashcards?page=1&pageSize=20&shuffle=true&shuffleSeed=seed-1"
     );
   });
+
+  it("sends only shuffle=true when shuffle is true without shuffleSeed", async () => {
+    const fetchSpy = jest.spyOn(global, "fetch").mockImplementation(() =>
+      jsonResponse(200, { items: [], page: 1, pageSize: 20, totalCount: 0 })
+    );
+    const queryClient = new QueryClient();
+
+    renderHook(
+      () =>
+        useFlashcardListQuery("deck_123", 1, 20, {
+          shuffle: true,
+        }),
+      {
+        wrapper: wrapperFactory(queryClient),
+      }
+    );
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+
+    const requestedUrl = String(fetchSpy.mock.calls[0][0]);
+    expect(requestedUrl).toContain("/api/decks/deck_123/flashcards?page=1&pageSize=20&shuffle=true");
+    expect(requestedUrl).not.toContain("shuffleSeed=");
+  });
 });

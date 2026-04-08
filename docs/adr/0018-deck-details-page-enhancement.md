@@ -1,135 +1,121 @@
 # ADR 0018: Deck Details Page Enhancement
 
 - Status: Accepted
-- Date: 2026-04-04
-- Owners: Frontend Developer
+- Date: 2026-06-19
+- Owners: Architecture, Frontend Developer
 - Related Contracts:
+  - docs/contracts/api/decks-get-detail-contract.yaml
+  - docs/contracts/api/flashcards-list-contract.yaml
+  - docs/contracts/api/decks-delete-contract.yaml
   - docs/contracts/api/deck-details-page-no-new-api-contract.yaml
-- Related Design Handoff:
-  - docs/design-handoffs/deck-details-page-2026-04.md
-- GitHub Issue: #3
 
 ## Context
 
-- The Deck Details page lacked navigational escape hatches on edit and create forms; users had no Cancel button and were forced to use the browser back control.
-- The page also lacked an at-a-glance summary of its flashcard content; users had to navigate away to the full flashcard list to see any cards.
-- Deleting a deck required navigating to an external confirmation route; there was no inline destructive-action flow consistent with the existing flashcard delete pattern in `FlashcardDetailRoute`.
-- All required data is already available through existing API contracts (`GET /api/decks/{deckId}` and `GET /api/decks/{deckId}/flashcards`); no backend or infrastructure changes are needed.
-- Tenax maintains a clean architecture boundary: frontend behavior changes must be isolated to the frontend module unless an API contract change is required.
+- GitHub Issue #3 identified three improvements to the existing deck detail page (`/decks/:deckId`):
+  1. Cancel navigation buttons on `DeckEditRoute`, `FlashcardEditRoute`, and `FlashcardCreateRoute`.
+  2. An embedded, paginated flashcard preview section on the deck detail page.
+  3. A delete deck action accessible directly from the deck detail page.
+- All backend API endpoints required by these improvements already exist and are fully contracted:
+  - `GET /api/decks/{deckId}` → `decks-get-detail-contract.yaml`
+  - `GET /api/decks/{deckId}/flashcards?page&pageSize` → `flashcards-list-contract.yaml`
+  - `DELETE /api/decks/{deckId}` → `decks-delete-contract.yaml`
+- The existing TanStack Query hooks (`useDeckDetailQuery`, `useFlashcardListQuery`, `useDeleteDeckMutation`) already encapsulate the API calls; no new hooks are required.
+- `DeckForm` and `FlashcardForm` components currently have no `onCancel` prop; adding one is the only component API surface change.
+- The separate `FlashcardListRoute` (`/decks/:deckId/flashcards`) must remain unaffected; the embedded preview is a compact supplement, not a replacement.
+- Tenax clean architecture boundaries remain unchanged: the feature involves only frontend route/component work with no Application, Domain, or Infrastructure layer changes.
 
 ## Decision
 
-### Scope
-Deliver three independent, additive enhancements to the Deck Details page and its associated forms — all entirely within the frontend. No new API endpoints, DTOs, backend service changes, or database migrations are required.
+### 1. Frontend-Only Enhancement — No New Backend Work
 
-### Batch 1 — Cancel Button on DeckForm and FlashcardForm
-- Add an optional `onCancel?: () => void` prop to both `DeckFormProps` and `FlashcardFormProps`.
-- When the prop is provided, render a `button--ghost` Cancel button alongside the existing submit button inside a `.section-row` wrapper.
-- When the prop is absent, existing consumers are completely unaffected (backward-compatible extension).
-- Cancel is disabled during form submission (`isSubmitting`) to prevent mid-request navigation.
-- Wire `onCancel` at the route level:
-  - `decks.$deckId.edit.tsx` → `navigate(\`/decks/${deckId}\`)`
-  - `decks.$deckId.flashcards.$flashcardId.edit.tsx` → `navigate(\`/decks/${deckId}/flashcards/${flashcardId}\`)`
-  - `decks.$deckId.flashcards.new.tsx` → `navigate(\`/decks/${deckId}\`)`
+All three improvements are implemented entirely in the frontend. The backend API inventory, endpoint contracts, and response schemas remain frozen. This is validated by referencing `docs/contracts/api/deck-details-page-no-new-api-contract.yaml`.
 
-### Batch 2 — Embedded Flashcard Preview on Deck Detail
-- Add a paginated flashcard preview `<section>` inside `DeckDetailRoute`, rendered below the primary action row within the existing `.stack` article.
-- Reuse `useFlashcardListQuery` with `pageSize=10`; page state is local (`useState(1)`).
-- Render four states: loading (3 skeleton rows), error (`.alert` + Retry), empty (message + CTA link), and populated (`.flat-list` items).
-- Pagination controls (`Previous` / `Showing X–Y of Z` / `Next`) are shown only when `totalCount > 0`.
-- "View all flashcards →" link to `/decks/:deckId/flashcards` is shown whenever `totalCount > 0`.
-- Display a `.flashcard-preview__image-badge` pill in each item's meta row when `item.hasImage` is `true`.
-- Add all new CSS under the `.flashcard-preview` namespace to `styles.css`.
+### 2. Cancel Navigation Targets
 
-### Batch 3 — Inline Delete Deck Confirmation
-- Replace any external delete-confirmation route with a fully inline state machine inside `DeckDetailRoute`.
-- States: `idle → confirming → deleting → success/error`.
-  - **Idle:** "Delete deck" (`button--danger`) rendered below the preview section, separated by a visual `<hr>`.
-  - **Confirming:** inline `.deck-detail__confirm-panel` (`role="group"`) with warning copy, "Confirm delete" (`button--danger`), and "Cancel" (`button--ghost`).
-  - **Deleting:** buttons disabled; label changes to "Deleting..."; panel remains visible to prevent layout jump.
-  - **Error:** `.alert` with classified error copy (409 concurrency / 503 unavailable / generic) and a "Try again" retry path.
-- On `Cancel` click or `Escape` key: transition to idle and return focus to the "Delete deck" trigger (`deleteTriggerRef`).
-- On mutation success: navigate to `/decks`.
+Each form route receives a deterministic cancel target defined at the route level. The `onCancel` callback is passed to the shared form component, which renders a Cancel button only when the prop is provided.
 
-### Compatibility and Boundary Policy
-- No backend request/response contract changes; `GET /api/decks/{deckId}` and `GET /api/decks/{deckId}/flashcards` are consumed as-is.
-- Any future change to those response shapes must follow the existing ADR + contract-update process before implementation.
-- The additive-only response evolution policy from ADR 0012 remains in force.
+| Route | Component | Cancel Target |
+|---|---|---|
+| `routes/decks.$deckId.edit.tsx` | `DeckForm` | `/decks/:deckId` |
+| `routes/decks.$deckId.flashcards.$flashcardId.edit.tsx` | `FlashcardForm` | `/decks/:deckId/flashcards/:flashcardId` |
+| `routes/decks.$deckId.flashcards.new.tsx` | `FlashcardForm` | `/decks/:deckId` |
+
+Cancel navigation is a pure client-side `navigate()` call — no mutation is triggered, no confirmation dialog is shown.
+
+### 3. DeckForm and FlashcardForm Component API Extension
+
+Both components receive an optional `onCancel?: () => void` prop. When the prop is present, a Cancel button is rendered alongside the submit button. When absent (i.e., in any other context that does not yet wire cancel behavior), no Cancel button renders. This preserves backward compatibility with any existing usages of these components.
+
+### 4. Embedded Flashcard Preview on Deck Detail
+
+The `DeckDetailRoute` renders a paginated flashcard preview section below deck metadata, using `useFlashcardListQuery(deckId, page, 10)` with a fixed `pageSize=10`.
+
+Rendering contract:
+- Each list item renders: `term` as a link to `/decks/:deckId/flashcards/:flashcardId`, `definitionPreview` truncated to ≤100 characters, and a visual image indicator driven by `hasImage`.
+- Pagination controls show Previous/Next buttons and a "Showing X–Y of Z" label derived from `page`, `pageSize`, and `totalCount`.
+- A "View all flashcards →" link navigates to `/decks/:deckId/flashcards` (the full `FlashcardListRoute`).
+- Loading, empty, and error states are rendered inline within the preview section; error state includes a manual retry action.
+- No search, filter, or sort controls are included in the preview.
+- The separate `FlashcardListRoute` at `/decks/:deckId/flashcards` is entirely unaffected.
+
+The fixed `pageSize=10` was chosen to keep the preview compact and avoid per-page query key proliferation. The full management route continues to use its own page/pageSize parameters independently.
+
+### 5. Inline Delete Confirmation — No Separate Modal Route
+
+Delete deck is surfaced in the actions row of `DeckDetailRoute`. Pressing "Delete deck" transitions the UI into an inline confirming state showing a warning message, a Confirm delete button, and a Cancel button — all rendered in place without route change or modal overlay.
+
+Delete flow state machine:
+```
+idle → confirming → deleting → success (navigate /decks)
+                              → error (inline, with retry or dismiss)
+```
+
+On successful deletion, the frontend navigates to `/decks`. On `409 concurrency_conflict` or `503 persistence_unavailable`, an inline error message is shown with a retry action; the state returns to `idle` after dismiss.
+
+The existing `useDeleteDeckMutation` hook is used without modification.
 
 ## Alternatives Considered
 
-1. **External delete-confirmation route** — consistent with early deck CRUD behavior, but adds a navigation round-trip for a common destructive action and diverges from the inline pattern established in `FlashcardDetailRoute`. Rejected.
-2. **`<dialog>` element for delete confirmation** — provides browser-native focus-trap; rejected because the design system does not yet have a `<dialog>` component, and an inline panel avoids a new pattern dependency for a single flow.
-3. **Embedding the full `FlashcardListRoute` in an iframe or portal on the detail page** — overly complex, breaks query isolation, and introduces duplicate scroll context. Rejected; a dedicated preview query with `pageSize=10` is sufficient.
-4. **Shared `onCancel` higher-order component** — unnecessary abstraction for a two-consumer prop addition; a simple optional prop is transparent and backward-compatible.
+1. **Separate modal route for delete confirmation** — Rejected. A route-based modal (e.g., `/decks/:deckId/delete`) would add route surface area with no user experience benefit. Inline confirmation is consistent with the existing flashcard delete confirmation pattern and requires no new route registration.
+
+2. **Client-side pagination for embedded preview** — Rejected. Fetching all flashcards and paginating in-memory would bypass the existing `useFlashcardListQuery` contract, create an unbounded initial fetch for large decks, and diverge from the contracted `page`/`pageSize` query parameters. Server-side pagination via the existing API is used instead.
+
+3. **Merge embedded preview into the existing FlashcardListRoute** — Rejected. The full management route and the detail preview serve different user intents (bulk management vs. quick orientation). Keeping them separate preserves route cohesion and avoids coupling the detail page load to the full flashcard list load.
+
+4. **Always-visible Cancel button via DeckForm/FlashcardForm default** — Rejected. Defaulting to a rendered Cancel button could break existing contexts (e.g., standalone create pages embedded in other surfaces). The opt-in `onCancel` prop is safer and preserves backward compatibility.
+
+5. **Global state or context for delete confirmation** — Rejected. Local component state for the delete flow state machine is sufficient; global state would introduce unnecessary coupling and complexity for a single-page interaction.
+
+6. **Inline delete on flashcard preview items** — Rejected (out of scope). Flashcard deletion remains exclusive to the flashcard detail/edit page to prevent accidental mass deletion from a preview context.
 
 ## Consequences
 
-- Positive impacts:
-  - Users have a safe, always-visible Cancel path on all edit and create forms.
-  - The deck detail page now surfaces flashcard content inline, reducing navigation friction for deck review.
-  - The inline delete flow is consistent with the flashcard delete pattern and avoids a round-trip route change.
-  - No backend effort required; no API contract risk.
-- Trade-offs and risks:
-  - The `.flashcard-preview__image-badge` uses `color-mix()` CSS, which requires a modern browser baseline; contrast in dark mode has not been formally verified via automated tooling at delivery time.
-  - The inline delete confirm panel adds local state complexity to `DeckDetailRoute`; this is acceptable at current scale but may warrant extraction to a dedicated hook if the file grows further.
-  - Preview section shows `totalCount` derived from the preview query, which may briefly diverge from the deck-level `flashcardCount` field if a flashcard is added or deleted in a separate tab between renders.
-- Follow-up tasks:
-  - Dark mode contrast QA for `.flashcard-preview__image-badge` (`.accent-tertiary` on `color-mix` background).
-  - Playwright visual regression check for the confirm panel and image badge.
-  - Consider extracting the delete state machine to a `useDeleteDeckFlow` custom hook if `DeckDetailRoute` grows further.
+### Positive Impacts
+- No backend work is required; the feature ships entirely within the frontend track.
+- Reuse of existing API hooks and contracts eliminates integration risk.
+- The `onCancel` prop pattern is extensible to future form contexts without contract changes.
+- The inline delete confirmation pattern is consistent with established UX patterns in the codebase.
+- The fixed `pageSize=10` preview keeps TanStack Query cache keys predictable (`flashcards.list(deckId, page, 10)`) and separate from the full list route's cache entries.
+
+### Trade-offs and Risks
+- The preview uses a separate cache entry (`pageSize=10`) from the full flashcard list (`pageSize=50` default), which means mutations that invalidate `flashcards.list(deckId, ...)` must invalidate both cache families. Ensure `useDeleteDeckMutation` and flashcard create/update/delete mutations invalidate by `deckId` prefix, not exact key match.
+- The inline delete state machine lives in `DeckDetailRoute` component state; a page refresh while in `confirming` state resets to `idle` — this is the desired behavior and requires no persistence.
+- `definitionPreview` truncation (≤100 chars) is a render-layer concern: the API already returns `definitionPreview` as a pre-truncated field per `flashcards-list-contract.yaml`. The frontend should not re-truncate; it should render the field directly.
+- Cancel navigation does not guard against unsaved changes (no dirty-field check before navigating away). This is consistent with existing navigation behavior elsewhere in the app and is explicitly out of scope for this issue.
+
+### Follow-up Tasks
+- Frontend Developer: implement all three improvements per AC-1 through AC-6.
+- QA: add test scenarios as detailed in `docs/contracts/api/deck-details-page-no-new-api-contract.yaml`.
+- Monitor TanStack Query cache invalidation in integration tests to confirm `pageSize=10` preview refreshes correctly after flashcard mutations.
 
 ## Parallel Delivery Notes
 
-- Backend track deliverables:
-  - No endpoint, DTO, domain model, or persistence changes required or delivered.
-  - Existing `GET /api/decks/{deckId}` and `GET /api/decks/{deckId}/flashcards` endpoints are consumed without modification.
-- Frontend track deliverables:
-  - Implement all three batches against existing API contracts and hooks.
-  - Extend `DeckForm` and `FlashcardForm` component APIs with backward-compatible `onCancel` prop.
-  - Add flashcard preview section and inline delete flow to `DeckDetailRoute`.
-  - Add CSS namespace `.flashcard-preview` and `.deck-detail__confirm-panel` to `styles.css`.
-- Shared contract milestones:
-  - `deck-details-page-no-new-api-contract.yaml` confirms no backend contract changes — serves as the guard against accidental scope creep into backend territory.
-
-## Acceptance Criteria Coverage
-
-- AC-1 `onCancel` prop on `DeckForm` — Cancel renders only when prop is provided; existing consumers unaffected:
-  - Covered by backward-compatible optional prop addition and component tests confirming conditional render.
-- AC-2 `onCancel` prop on `FlashcardForm` — same contract as AC-1:
-  - Covered by identical prop extension and parallel component test coverage.
-- AC-3 Route-level Cancel wiring on deck edit, flashcard edit, and flashcard new routes:
-  - Covered by `useNavigate()` wiring at each route with the correct navigation target per route.
-- AC-4 Embedded flashcard preview (pageSize=10, all four states, pagination, "View all" link, image badge):
-  - Covered by preview section implementation in `decks.$deckId.tsx` and `.flashcard-preview__image-badge` in `styles.css`.
-- AC-5 Inline delete-deck confirmation state machine (idle → confirming → deleting → success/error):
-  - Covered by state machine implementation in `decks.$deckId.tsx` using `useDeleteDeckMutation`.
-- AC-6 Focus management and Escape key support for inline delete flow:
-  - Covered by `deleteTriggerRef` focus restoration on Cancel/Escape and `keydown` Escape handler registered in confirming and error states.
-
-## Implementation Outcome (2026-04-08)
-
-- All 6 acceptance criteria delivered by frontend-only implementation; no backend or contract changes were required.
-- Three batches shipped in a single frontend delivery:
-  - **Batch 1:** `onCancel` optional prop added to `DeckForm` and `FlashcardForm`; Cancel button wired at three route sites.
-  - **Batch 2:** Paginated flashcard preview section added to `DeckDetailRoute`; `.flashcard-preview__image-badge` CSS class added.
-  - **Batch 3:** Inline delete-deck confirmation state machine implemented in `DeckDetailRoute` with focus management and Escape key support.
-- Test evidence:
-  - 14 test suites, 93 tests passed; build passed.
-  - Component tests cover: Cancel renders when prop provided / absent, Cancel calls `onCancel` on click, Cancel disabled during submit, preview loading/error/empty/list/pagination states, delete state machine transitions, focus restoration on Cancel/Escape.
-- Files changed:
-  - `src/Tenax.Web/frontend/src/components/DeckForm.tsx`
-  - `src/Tenax.Web/frontend/src/components/FlashcardForm.tsx`
-  - `src/Tenax.Web/frontend/src/routes/decks.$deckId.edit.tsx`
-  - `src/Tenax.Web/frontend/src/routes/decks.$deckId.flashcards.$flashcardId.edit.tsx`
-  - `src/Tenax.Web/frontend/src/routes/decks.$deckId.flashcards.new.tsx`
-  - `src/Tenax.Web/frontend/src/routes/decks.$deckId.tsx`
-  - `src/Tenax.Web/frontend/src/styles.css`
-- Known remaining work:
-  - Dark mode contrast QA for `.flashcard-preview__image-badge` (Playwright visual check against dark theme tokens has not been run).
-  - Playwright visual regression check for the inline delete confirm panel across light and dark themes.
-
-### Post-Release Follow-Ups (2026-04-08)
-- Dark mode WCAG AA contrast fix: `--accent-tertiary` and `--focus-ring` overridden to `#818fff` in `[data-theme="dark"]` (commit `9e23899`).
-- Delete state machine extracted to `useDeleteDeckFlow` hook in `decks.$deckId.delete-flow.ts` with hook-level unit tests (commit `76c42ba`).
-- Final test count: **104 tests passing**, build passing. All four originally-flagged non-blocking items closed (Playwright baselines and HTTP E2E execution remain infrastructure-gated).
+- **Backend track deliverables:** None. All required endpoints exist. No backend changes.
+- **Frontend track deliverables:**
+  - Add `onCancel?: () => void` to `DeckForm` and `FlashcardForm` components.
+  - Wire cancel targets in `DeckEditRoute`, `FlashcardEditRoute`, and `FlashcardCreateRoute`.
+  - Implement embedded flashcard preview section in `DeckDetailRoute` using `useFlashcardListQuery(deckId, page, 10)`.
+  - Implement inline delete confirmation state machine in `DeckDetailRoute`.
+- **Shared contract milestones:**
+  - ADR 0018 and `deck-details-page-no-new-api-contract.yaml` approved before coding starts.
+  - AC-1 through AC-6 validated via integration and E2E tests before merge.

@@ -279,6 +279,29 @@ public sealed class FlashcardsEndpointsTests : IClassFixture<CustomWebApplicatio
     }
 
     [Fact]
+    public async Task List_ShuffleWithSeed_ShouldReturn200()
+    {
+        await CreateFlashcardAsync("deck_owned", "hola", "hello");
+
+        var response = await _client.GetAsync("/api/decks/deck_owned/flashcards?shuffle=true&shuffleSeed=test-seed&page=1&pageSize=20");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task List_ShuffleWithoutSeed_ShouldReturn400ValidationEnvelope()
+    {
+        var response = await _client.GetAsync("/api/decks/deck_owned/flashcards?shuffle=true&page=1&pageSize=20");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("validation_error", body.GetProperty("code").GetString());
+        Assert.True(body.TryGetProperty("errors", out var errors));
+        Assert.True(errors.TryGetProperty("shuffleSeed", out _));
+    }
+
+    [Fact]
     public async Task MissingDeck_ShouldReturn404Envelope()
     {
         var response = await _client.GetAsync("/api/decks/deck_missing/flashcards");

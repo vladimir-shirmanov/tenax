@@ -11,10 +11,12 @@ Expected folder schema:
 
 ```text
 src/
+	Tenax.AppHost/         ← .NET Aspire orchestrator (Postgres, Keycloak, Web API, Vite frontend)
 	Tenax.Domain/
 	Tenax.Application/
 	Tenax.Infrastructure/
-	Tenax.Web/
+	Tenax.ServiceDefaults/ ← shared Aspire telemetry/health defaults
+	Tenax.Web/             ← ASP.NET Core Minimal API + React SPA (src/Tenax.Web/frontend/)
 tests/
 	Tenax.Domain.Tests/
 	Tenax.Application.Tests/
@@ -33,9 +35,122 @@ Layer responsibilities:
 
 ## Build and Test
 
-The repository currently has the folder schema prepared, but project files and executable build commands still need to be added.
-Before implementing features, create the relevant `.csproj` files, choose the target framework, add the projects to `Tenax.slnx`, and establish matching test projects.
-When build, run, or test commands become available, update this file so agents can rely on them.
+### .NET
+
+```bash
+# Build the entire solution
+dotnet build
+
+# Run all .NET tests
+dotnet test
+
+# Run a single test class or method
+dotnet test --filter "FullyQualifiedName~DecksEndpointsTests"
+dotnet test --filter "FullyQualifiedName~DecksEndpointsTests.CreateDeck_Returns201"
+
+# Run with coverage
+dotnet test --settings coverage.runsettings
+
+# Run the full stack locally (requires Docker for Postgres + Keycloak)
+dotnet run --project src/Tenax.AppHost
+
+# Skip the Vite frontend when starting Aspire (faster API-only iteration)
+$env:TENAX_APPHOST_SKIP_FRONTEND="true"; dotnet run --project src/Tenax.AppHost
+
+# EF Core migrations
+dotnet ef migrations add <Name> --project src/Tenax.Infrastructure --startup-project src/Tenax.Web
+dotnet ef database update --project src/Tenax.Infrastructure --startup-project src/Tenax.Web
+```
+
+### Frontend (from `src/Tenax.Web/frontend/`)
+
+```bash
+cd src/Tenax.Web/frontend
+
+npm run dev          # Vite dev server (started automatically by Aspire in development)
+npm run build        # TypeScript compile + Vite production build
+npm run test         # Jest unit tests (--runInBand)
+npm run test:e2e     # Playwright end-to-end tests (all browsers)
+npm run test:e2e:chromium  # Playwright Chromium only
+
+# Run a single Jest test file or test name
+npm run test -- --testPathPattern="decks.routes"
+npm run test -- --testNamePattern="shows deck list"
+```
+
+## Key Patterns
+
+### Application service result type
+
+Application services return `XResult<T>` (e.g., `DeckResult<T>`) — a discriminated union, not exceptions:
+
+```csharp
+public sealed class DeckResult<T>
+{
+    public bool IsSuccess => Failure is null;
+    public T? Value { get; }
+    public DeckFailure? Failure { get; }   // Code + Message + optional field Errors dict
+}
+```
+
+Endpoint handlers map failure codes to HTTP status codes with a `switch` on `failure.Code`. Add new error codes to the static `*ErrorCodes` class in Application; map them in the endpoint's `ToErrorResult` method.
+
+### API error envelope
+
+All error responses use a single shape:
+
+```json
+{ "code": "deck_not_found", "message": "...", "traceId": "...", "errors": { "name": ["..."] } }
+```
+
+`errors` is present only for `validation_error`. The frontend reads `error.envelope.code` (via `ApiError`) to branch on specific failure types.
+
+### Authentication split
+
+- **Frontend**: OIDC Authorization Code + PKCE via `oidc-client-ts`. Auth config is resolved at runtime from `window.TENAX_AUTH_CONFIG` (injected server-side or by Aspire env vars). Vite `VITE_TENAX_AUTH_*` variables are a dev-only fallback.
+- **Backend**: Validates JWT Bearer tokens issued by Keycloak. The `BearerTokenAuthenticationHandler` reads `Authentication__JwtBearer__*` config, which Aspire injects automatically in development.
+- The two sides are decoupled: the backend never redirects to Keycloak; the frontend never validates tokens.
+
+### Aspire local development
+
+`Tenax.AppHost` orchestrates: Postgres → Web API → Keycloak (dev only) → Vite frontend. Keycloak is imported from `src/Tenax.AppHost/keycloak/import/tenax-realm-dev.json`. The Web API waits for Postgres; the frontend waits for the Web API.
+
+### Frontend query key factories
+
+Each API module exports a `*Keys` factory. Use it consistently for cache invalidation:
+
+```ts
+export const deckKeys = {
+  all: ["decks"] as const,
+  listRoot: () => [...deckKeys.all, "list"] as const,
+  list: (page, pageSize) => [...deckKeys.listRoot(), page, pageSize] as const,
+  detail: (deckId) => [...deckKeys.all, "detail", deckId] as const,
+};
+```
+
+Invalidate `listRoot()` after create/update/delete. Set the detail cache entry directly after create/update to avoid a redundant fetch.
+
+### Frontend form validation
+
+Forms use `react-hook-form` + `zod` + `@hookform/resolvers/zod`. Field errors should only appear after a field has been touched (blurred or dirtied), per ADR-0014. Backend validation errors (`validation_error` envelope) are merged into form field errors after submission.
+
+### Frontend route naming
+
+Route files follow a flat dot-notation convention mirroring the URL path:
+
+```
+decks.tsx                                   → /decks
+decks.new.tsx                               → /decks/new
+decks.$deckId.tsx                           → /decks/:deckId
+decks.$deckId.flashcards.index.tsx          → /decks/:deckId/flashcards
+decks.$deckId.flashcards.$flashcardId.tsx   → /decks/:deckId/flashcards/:flashcardId
+```
+
+All routes are registered in `src/app/router.tsx` under a single `AppShell` parent.
+
+### Integration tests
+
+`CustomWebApplicationFactory` starts a `postgres:16-alpine` Testcontainer, runs EF Core migrations, and replaces only the authentication handler (`TestAuthHandler`). All application, infrastructure, and persistence behavior is real. Tests are in `tests/Tenax.Web.Tests/`.
 
 ## Conventions
 

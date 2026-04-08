@@ -1,10 +1,48 @@
 contract_version: 1
 feature: "deck-details-page-enhancement"
 change_type: "no_api_response_contract_changes"
+issue: "GitHub Issue #3"
 endpoint:
   method: "ANY"
   path: "/api/*"
   owner: "Backend Developer"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 1 — API CONTRACT REUSE DECLARATION
+# No new backend endpoints are introduced. The three existing contracts below
+# are reused by the frontend enhancement as described.
+# ─────────────────────────────────────────────────────────────────────────────
+
+reused_contracts:
+  - contract_file: "decks-get-detail-contract.yaml"
+    endpoint: "GET /api/decks/{deckId}"
+    usage: >
+      DeckDetailRoute loads deck metadata (name, description, timestamps) via
+      useDeckDetailQuery(deckId). The response schema is unchanged. The same
+      query key (decks.detail(deckId)) and staleTime=30000/retry=1 cache policy
+      apply. No additional fields are requested or expected.
+
+  - contract_file: "flashcards-list-contract.yaml"
+    endpoint: "GET /api/decks/{deckId}/flashcards?page=<n>&pageSize=10"
+    usage: >
+      DeckDetailRoute renders an embedded flashcard preview using
+      useFlashcardListQuery(deckId, page, 10) with a fixed pageSize=10.
+      The response schema (items[], page, pageSize, totalCount) is unchanged.
+      Query key: flashcards.list(deckId, page, 10).
+      This is a distinct cache family from the full FlashcardListRoute which
+      uses its own page/pageSize parameters (default pageSize=50).
+      staleTime=30000, retry=1. On 503 persistence_unavailable show inline
+      error with manual retry. On 404 deck_not_found surface an error state.
+
+  - contract_file: "decks-delete-contract.yaml"
+    endpoint: "DELETE /api/decks/{deckId}"
+    usage: >
+      DeckDetailRoute triggers useDeleteDeckMutation(deckId) after the user
+      confirms deletion via the inline confirmation UI. On 200 success the
+      frontend navigates to /decks. On 409 concurrency_conflict or
+      503 persistence_unavailable an inline error is shown with retry.
+      Optimistic removal from decks.list(*) cache applies per existing hook
+      contract; on error, the optimistic update is rolled back.
 
 request:
   path_params: []
@@ -16,31 +54,30 @@ responses:
     status: 200
     schema:
       type: object
-      required: ["contractChange", "justification", "affectedContracts"]
+      required: ["contractChange", "justification", "reusedContracts"]
       properties:
         contractChange:
           type: string
           enum: ["none"]
         justification:
           type: string
-        affectedContracts:
+        reusedContracts:
           type: array
           items:
             type: string
     example:
       contractChange: "none"
       justification: >
-        The deck details page enhancement (GitHub Issue #3) adds an optional Cancel button to
-        DeckForm and FlashcardForm, embeds a paginated flashcard preview on the deck detail page,
-        and introduces an inline delete-deck confirmation state machine — all frontend-only changes.
-        No backend HTTP response shapes, endpoint inventory, DTO fields, or status-code semantics
-        are modified. Existing contracts for GET /api/decks/{deckId} and
-        GET /api/decks/{deckId}/flashcards remain the authoritative sources of truth and are
-        consumed without modification.
-      affectedContracts:
+        The deck details page enhancement (GitHub Issue #3) adds Cancel navigation
+        buttons to edit/create form routes, an embedded paginated flashcard preview,
+        and an inline delete confirmation flow. All changes are frontend-only.
+        Backend API endpoint inventory, request/response schemas, status codes, and
+        error envelopes remain frozen. The three existing contracts are reused
+        without modification.
+      reusedContracts:
         - "decks-get-detail-contract.yaml"
-        - "decks-delete-contract.yaml"
         - "flashcards-list-contract.yaml"
+        - "decks-delete-contract.yaml"
 
   errors:
     - status: 409
@@ -58,9 +95,9 @@ responses:
         code: "contract_violation"
         message: "Detected API response shape drift without contract update during deck details page enhancement delivery"
         details:
-          - "Do not add new backend endpoints as part of frontend-only detail page work"
-          - "Do not change deck or flashcard response payloads as part of this enhancement"
-          - "Update endpoint-specific contracts and ADRs before any API behavior change"
+          - "Do not add or modify backend endpoint schemas as part of this frontend enhancement"
+          - "Do not introduce new API endpoints for the embedded preview or inline delete"
+          - "Update reused contracts and ADR 0018 before any API behavior change"
 
     - status: 503
       code: "delivery_scope_violation"
@@ -72,38 +109,296 @@ responses:
           message: { type: string }
       example:
         code: "delivery_scope_violation"
-        message: "Deck details page enhancement delivery attempted to expand into backend/API scope without approved architecture update"
+        message: "Deck details page enhancement delivery expanded into backend/API scope without approved architecture update"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 2 — COMPONENT API CONTRACT
+# Defines the prop-level API extension to DeckForm and FlashcardForm.
+# ─────────────────────────────────────────────────────────────────────────────
+
+component_api_contracts:
+  DeckForm:
+    file: "components/DeckForm.tsx"
+    new_prop:
+      name: "onCancel"
+      type: "(() => void) | undefined"
+      required: false
+      behavior: >
+        When provided, a Cancel button is rendered alongside the submit button.
+        Clicking Cancel invokes onCancel() without triggering any mutation.
+        When absent, no Cancel button is rendered. Existing usages without
+        onCancel are unaffected (backward compatible).
+    example_usage: |
+      <DeckForm
+        defaultValues={deck}
+        onSubmit={handleSubmit}
+        onCancel={() => navigate(`/decks/${deckId}`)}
+      />
+
+  FlashcardForm:
+    file: "components/FlashcardForm.tsx"
+    new_prop:
+      name: "onCancel"
+      type: "(() => void) | undefined"
+      required: false
+      behavior: >
+        When provided, a Cancel button is rendered alongside the submit button.
+        Clicking Cancel invokes onCancel() without triggering any mutation.
+        When absent, no Cancel button is rendered. Existing usages without
+        onCancel are unaffected (backward compatible).
+    example_usage: |
+      <FlashcardForm
+        defaultValues={flashcard}
+        onSubmit={handleSubmit}
+        onCancel={() => navigate(`/decks/${deckId}/flashcards/${flashcardId}`)}
+      />
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 3 — CANCEL NAVIGATION ROUTE MAP
+# Defines the exact cancel target for each route. No mutation is triggered
+# on cancel. Navigation is a pure React Router navigate() call.
+# ─────────────────────────────────────────────────────────────────────────────
+
+cancel_navigation_targets:
+  - route: "routes/decks.$deckId.edit.tsx"
+    component: "DeckForm"
+    cancel_target: "/decks/:deckId"
+    acceptance_criterion: "AC-1"
+    rationale: "Returns user to the deck detail page they came from."
+
+  - route: "routes/decks.$deckId.flashcards.$flashcardId.edit.tsx"
+    component: "FlashcardForm"
+    cancel_target: "/decks/:deckId/flashcards/:flashcardId"
+    acceptance_criterion: "AC-2"
+    rationale: "Returns user to the flashcard detail page, preserving context."
+
+  - route: "routes/decks.$deckId.flashcards.new.tsx"
+    component: "FlashcardForm"
+    cancel_target: "/decks/:deckId"
+    acceptance_criterion: "AC-3"
+    rationale: "Returns user to the deck detail page since no flashcard exists yet."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 4 — FLASHCARD PREVIEW RENDERING CONTRACT
+# Defines which fields from FlashcardListItem are used and how.
+# Source contract: flashcards-list-contract.yaml (items[] schema).
+# ─────────────────────────────────────────────────────────────────────────────
+
+flashcard_preview_rendering:
+  acceptance_criterion: "AC-5"
+  query_hook: "useFlashcardListQuery(deckId, page, 10)"
+  query_key: "flashcards.list(deckId, page, 10)"
+  page_size_fixed: 10
+  source_schema: "flashcards-list-contract.yaml → responses.success.schema.properties.items.items"
+
+  fields_used:
+    - field: "id"
+      usage: "React list key; used to construct flashcard detail link: /decks/:deckId/flashcards/:id"
+
+    - field: "term"
+      usage: >
+        Rendered as the primary label for each preview item. Wrapped in a React Router
+        <Link> navigating to /decks/:deckId/flashcards/:id. No truncation applied —
+        term is displayed in full.
+
+    - field: "definitionPreview"
+      usage: >
+        Rendered as secondary text. The API contract guarantees this is already a
+        server-truncated preview. The frontend MUST NOT re-truncate this value.
+        Displayed as-is. (Note: AC-5 specifies ≤100 chars — this is satisfied by the
+        server; definitionPreview in flashcards-list-contract.yaml is the truncated field.)
+
+    - field: "hasImage"
+      usage: >
+        When true, render a visual image indicator (e.g., an icon or badge) alongside
+        the term. When false, no indicator is rendered. The actual image URL is not
+        available in the list response and must not be fetched for the preview.
+
+    - field: "deckId"
+      usage: "Used to verify response coherence during development; not rendered."
+
+    - field: "updatedAtUtc"
+      usage: "Not rendered in preview. Available if needed for future sort/display."
+
+    - field: "updatedByUserId"
+      usage: "Not rendered in preview."
+
+  pagination_display:
+    controls: "Previous button, Next button, 'Showing X–Y of Z' label"
+    x_formula: "((page - 1) * pageSize) + 1"
+    y_formula: "min(page * pageSize, totalCount)"
+    z_source: "totalCount from API response"
+    previous_disabled_when: "page === 1"
+    next_disabled_when: "page * pageSize >= totalCount"
+
+  view_all_link:
+    label: "View all flashcards →"
+    target: "/decks/:deckId/flashcards"
+    visibility: "Always visible when totalCount > 0"
+
+  states:
+    loading:
+      trigger: "useFlashcardListQuery isLoading === true"
+      render: "Skeleton or spinner within the preview section. Pagination controls hidden."
+
+    empty:
+      trigger: "items.length === 0 and isSuccess === true"
+      render: >
+        Empty state message, e.g. "No flashcards yet. Add your first flashcard."
+        with a link or button to /decks/:deckId/flashcards/new.
+        Pagination controls hidden.
+
+    error:
+      trigger: "isError === true"
+      render: >
+        Inline error message within the preview section. Include a Retry button that
+        calls refetch(). Error text should be user-friendly (not a raw traceId).
+        Map API error codes:
+          503 persistence_unavailable → "Service temporarily unavailable. Please try again."
+          404 deck_not_found → "Deck not found."
+          default → "Failed to load flashcards. Please try again."
+
+    success:
+      trigger: "isSuccess === true and items.length > 0"
+      render: "Flashcard list items + pagination controls + View all link."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 5 — DELETE DECK FLOW STATE MACHINE
+# Inline confirmation — no route change, no modal overlay.
+# Uses existing useDeleteDeckMutation(deckId).
+# ─────────────────────────────────────────────────────────────────────────────
+
+delete_deck_flow:
+  acceptance_criterion: "AC-6"
+  mutation_hook: "useDeleteDeckMutation(deckId)"
+  source_contract: "decks-delete-contract.yaml"
+
+  state_machine:
+    states:
+      idle:
+        description: "Default state. 'Delete deck' button visible in actions row."
+        transitions:
+          - on: "user clicks 'Delete deck'"
+            next: "confirming"
+
+      confirming:
+        description: >
+          Inline warning UI replaces or augments the action row. No route change.
+          Renders: warning message, 'Confirm delete' button, 'Cancel' button.
+        warning_message: >
+          "Are you sure you want to delete this deck? This action cannot be undone."
+        transitions:
+          - on: "user clicks 'Cancel'"
+            next: "idle"
+          - on: "user clicks 'Confirm delete'"
+            next: "deleting"
+            action: "invoke useDeleteDeckMutation.mutate()"
+
+      deleting:
+        description: >
+          Mutation in-flight. 'Confirm delete' button shows loading state and is
+          disabled. 'Cancel' button is hidden or disabled. No other deck actions
+          available.
+        transitions:
+          - on: "mutation onSuccess (200 deleted: true)"
+            next: "success"
+          - on: "mutation onError (409 concurrency_conflict)"
+            next: "error_concurrency"
+          - on: "mutation onError (503 persistence_unavailable)"
+            next: "error_persistence"
+          - on: "mutation onError (other)"
+            next: "error_generic"
+
+      success:
+        description: "Mutation succeeded. Navigate to /decks immediately."
+        action: "navigate('/decks')"
+        cache_behavior: >
+          useDeleteDeckMutation handles optimistic removal from decks.list(*) and
+          removes decks.detail(deckId) cache entry on success per existing hook contract.
+
+      error_concurrency:
+        description: "409 concurrency_conflict received."
+        render: >
+          Inline error: "This deck was modified by another action. Refresh the page to
+          see the latest state before retrying."
+          Actions: 'Dismiss' (returns to idle) — no automatic retry.
+        transitions:
+          - on: "user clicks 'Dismiss'"
+            next: "idle"
+
+      error_persistence:
+        description: "503 persistence_unavailable received."
+        render: >
+          Inline error: "Service temporarily unavailable. Please try again."
+          Actions: 'Retry' (returns to confirming), 'Dismiss' (returns to idle).
+        transitions:
+          - on: "user clicks 'Retry'"
+            next: "confirming"
+          - on: "user clicks 'Dismiss'"
+            next: "idle"
+
+      error_generic:
+        description: "Unexpected error (non-409, non-503)."
+        render: >
+          Inline error: "Failed to delete deck. Please try again."
+          Actions: 'Retry' (returns to confirming), 'Dismiss' (returns to idle).
+        transitions:
+          - on: "user clicks 'Retry'"
+            next: "confirming"
+          - on: "user clicks 'Dismiss'"
+            next: "idle"
+
+  optimistic_update_rollback:
+    on_error: >
+      If useDeleteDeckMutation applied an optimistic cache removal,
+      the existing hook's rollback mechanism restores decks.list(*) on error.
+      DeckDetailRoute does not need to implement additional rollback logic.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 6 — FRONTEND CONTRACT NOTES (TanStack Query / React Router)
+# ─────────────────────────────────────────────────────────────────────────────
 
 frontend_contract_notes:
-  query_key: >
-    Preview section uses useFlashcardListQuery(deckId, page, 10) with TanStack Query key
-    ["decks", deckId, "flashcards", { page, pageSize: 10 }]; existing query key shapes for
-    deck detail and flashcard list are preserved unchanged.
-  cache_policy: >
-    Preview section respects existing stale/refetch policy from useFlashcardListQuery.
-    Page state is local to DeckDetailRoute (useState) and does not affect the global query cache.
-    Delete mutation uses useDeleteDeckMutation with its existing invalidation behavior.
-  route_usage: >
-    DeckDetailRoute (decks.$deckId.tsx) is enhanced with the preview section and inline
-    delete flow. DeckEditRoute, FlashcardEditRoute, and FlashcardCreateRoute are enhanced
-    with Cancel button wiring only. FlashcardListRoute is not modified.
-  form_cancel_rules:
-    - "onCancel is optional on DeckForm and FlashcardForm; omitting it preserves existing behavior exactly"
-    - "Cancel button is type='button' and calls onCancel() immediately — no confirmation, no mutation"
-    - "Cancel is disabled during isSubmitting to prevent navigation away mid-request"
-  preview_rules:
-    - "pageSize is hardcoded to 10 in the preview section; FlashcardListRoute retains its own pageSize behavior"
-    - "Preview page state resets to 1 when deckId changes (useEffect dependency)"
-    - "Preview section does not affect FlashcardListRoute in any way"
-  delete_flow_rules:
-    - "Inline delete confirmation is not a <dialog> element; it renders inline within the page flow"
-    - "On success, DeckDetailRoute navigates to /decks via useNavigate()"
-    - "Error classification uses isConcurrencyConflictError (409) and isPersistenceUnavailableError (503)"
+  query_keys:
+    - key: "decks.detail(deckId)"
+      usage: "Loaded by useDeckDetailQuery(deckId) on DeckDetailRoute mount. Unchanged."
+    - key: "flashcards.list(deckId, page, 10)"
+      usage: >
+        New cache family for embedded preview. Uses fixed pageSize=10.
+        Must be invalidated by flashcard create/update/delete mutations (by deckId prefix)
+        in addition to the existing flashcards.list(deckId, page, 50) family used by
+        FlashcardListRoute.
+
+  cache_invalidation_notes:
+    - "Flashcard create mutation must invalidate flashcards.list(deckId, *) broadly (all page/pageSize combos for that deckId)."
+    - "Flashcard update mutation must invalidate flashcards.list(deckId, *) broadly."
+    - "Flashcard delete mutation must invalidate flashcards.list(deckId, *) broadly."
+    - "Delete deck mutation (useDeleteDeckMutation) handles its own cache cleanup per decks-delete-contract.yaml."
+
+  route_usage:
+    - route: "routes/decks.$deckId.tsx"
+      changes: >
+        Add embedded flashcard preview section (AC-5) and inline delete confirmation
+        UI (AC-6). Wire useDeckDetailQuery, useFlashcardListQuery(deckId, page, 10),
+        and useDeleteDeckMutation(deckId).
+    - route: "routes/decks.$deckId.edit.tsx"
+      changes: "Pass onCancel={() => navigate(`/decks/${deckId}`)} to DeckForm (AC-1)."
+    - route: "routes/decks.$deckId.flashcards.$flashcardId.edit.tsx"
+      changes: >
+        Pass onCancel={() => navigate(`/decks/${deckId}/flashcards/${flashcardId}`)}
+        to FlashcardForm (AC-2).
+    - route: "routes/decks.$deckId.flashcards.new.tsx"
+      changes: "Pass onCancel={() => navigate(`/decks/${deckId}`)} to FlashcardForm (AC-3)."
+    - route: "routes/decks.$deckId.flashcards.index.tsx"
+      changes: "None. This route is unaffected by the enhancement."
+
+no_change_guardrails:
+  - "This scope does not add or modify backend HTTP request/response schemas."
+  - "All three reused endpoint contracts remain authoritative and frozen during this delivery."
+  - "The FlashcardListRoute (/decks/:deckId/flashcards) behavior is unchanged."
+  - "No new TanStack Query hooks are introduced; only existing hooks are consumed."
+  - "Any future requirement to add filtering, sorting, or search to the embedded preview requires a new ADR."
 
 compatibility_rules:
   additive_only: true
   breaking_change_process: "requires ADR update"
-  no_change_guardrails:
-    - "This scope does not introduce or modify backend HTTP request/response payload schemas"
-    - "Existing deck and flashcard contracts remain authoritative and unmodified"
-    - "Any future deck metadata field or delete-response shape change requires a separate ADR and dedicated contract update before implementation"
