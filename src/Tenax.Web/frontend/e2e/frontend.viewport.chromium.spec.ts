@@ -37,6 +37,48 @@ const flashcardFixture = {
   updatedByUserId: "usr_42",
 };
 
+const flashcardPreviewFixture = [
+  {
+    id: "fc_1",
+    deckId: "deck_123",
+    term: "hola",
+    definition: "hello (informal greeting)",
+    definitionPreview: "hello (informal greeting)",
+    imageUrl: null,
+    hasImage: false,
+    createdAtUtc: "2026-03-17T09:00:00Z",
+    updatedAtUtc: "2026-03-17T09:45:00Z",
+    createdByUserId: "usr_42",
+    updatedByUserId: "usr_42",
+  },
+  {
+    id: "fc_2",
+    deckId: "deck_123",
+    term: "gracias",
+    definition: "thank you",
+    definitionPreview: "thank you",
+    imageUrl: null,
+    hasImage: false,
+    createdAtUtc: "2026-03-17T09:05:00Z",
+    updatedAtUtc: "2026-03-17T09:45:00Z",
+    createdByUserId: "usr_42",
+    updatedByUserId: "usr_42",
+  },
+  {
+    id: "fc_3",
+    deckId: "deck_123",
+    term: "adiós",
+    definition: "goodbye",
+    definitionPreview: "goodbye",
+    imageUrl: "https://example.com/adios.png",
+    hasImage: true,
+    createdAtUtc: "2026-03-17T09:10:00Z",
+    updatedAtUtc: "2026-03-17T09:45:00Z",
+    createdByUserId: "usr_42",
+    updatedByUserId: "usr_42",
+  },
+];
+
 const installApiMocks = async (page: Page) => {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -99,10 +141,23 @@ const installApiMocks = async (page: Page) => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          items: [flashcardFixture],
+          items: flashcardPreviewFixture,
           page: 1,
           pageSize: 50,
-          totalCount: 1,
+          totalCount: flashcardPreviewFixture.length,
+        }),
+      });
+      return;
+    }
+
+    if (method === "DELETE" && path === "/api/decks/deck_123") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          deleted: true,
+          id: "deck_123",
+          deletedAtUtc: "2026-04-08T13:00:00Z",
         }),
       });
       return;
@@ -463,5 +518,134 @@ test.describe("theme toggle", () => {
       document.documentElement.getAttribute("data-theme")
     );
     expect(htmlTheme).toBe("dark");
+  });
+});
+
+test.describe("deck details page enhancement (Issue #3)", () => {
+  test.beforeEach(async ({ page }) => {
+    await installApiMocks(page);
+    await page.addInitScript(() => {
+      localStorage.removeItem("tenax.theme.preference");
+      sessionStorage.clear();
+    });
+  });
+
+  test("cancel button on deck edit route navigates back to deck detail", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123/edit");
+
+    await expect(page.getByRole("heading", { level: 1, name: /^edit deck$/i })).toBeVisible();
+
+    const cancelButton = page.getByRole("button", { name: /^cancel$/i });
+    await expect(cancelButton).toBeVisible();
+
+    await cancelButton.click();
+
+    await expect(page.getByRole("heading", { level: 1, name: /spanish basics/i })).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("cancel button on flashcard create route navigates back to deck detail", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123/flashcards/new");
+
+    await expect(page.getByRole("heading", { level: 1, name: /create flashcard/i })).toBeVisible();
+
+    const cancelButton = page.getByRole("button", { name: /^cancel$/i });
+    await expect(cancelButton).toBeVisible();
+
+    await cancelButton.click();
+
+    await expect(page.getByRole("heading", { level: 1, name: /spanish basics/i })).toBeVisible();
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("embedded flashcard preview renders on deck detail at 1440px", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123");
+
+    // Preview section heading must be an h2
+    await expect(page.getByRole("heading", { level: 2, name: /^flashcards$/i })).toBeVisible();
+
+    // Term links for preview items should be visible in the flat list
+    await expect(page.getByRole("link", { name: /hola/i })).toBeVisible();
+
+    // "View all flashcards →" link must point to the flashcard list route
+    const viewAllLink = page.getByRole("link", { name: /view all flashcards/i });
+    await expect(viewAllLink).toBeVisible();
+    await expect(viewAllLink).toHaveAttribute("href", /\/decks\/deck_123\/flashcards/);
+
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("embedded flashcard preview renders at 375px with no horizontal overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/decks/deck_123");
+
+    // Preview section heading must be an h2 and fit within the viewport
+    await expect(page.getByRole("heading", { level: 2, name: /^flashcards$/i })).toBeVisible();
+
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("inline delete: confirm panel shows and cancel returns to idle state", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123");
+
+    const deleteButton = page.getByRole("button", { name: /^delete deck$/i });
+    await expect(deleteButton).toBeVisible();
+
+    // Trigger the confirmation panel
+    await deleteButton.click();
+
+    const warningText = page.getByText(/are you sure you want to delete this deck/i);
+    await expect(warningText).toBeVisible();
+
+    const confirmButton = page.getByRole("button", { name: /^confirm delete$/i });
+    await expect(confirmButton).toBeVisible();
+
+    const cancelButton = page.getByRole("button", { name: /^cancel$/i });
+    await expect(cancelButton).toBeVisible();
+
+    // Click Cancel inside the confirmation panel — should return to idle
+    await cancelButton.click();
+
+    await expect(deleteButton).toBeVisible();
+    await expect(warningText).not.toBeVisible();
+
+    await assertNoHorizontalOverflow(page);
+  });
+
+  test("inline delete: Escape key returns confirming state to idle", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123");
+
+    const deleteButton = page.getByRole("button", { name: /^delete deck$/i });
+    await deleteButton.click();
+
+    const confirmButton = page.getByRole("button", { name: /^confirm delete$/i });
+    await expect(confirmButton).toBeVisible();
+
+    // Escape should dismiss the confirming panel
+    await page.keyboard.press("Escape");
+
+    await expect(confirmButton).not.toBeVisible();
+    await expect(deleteButton).toBeVisible();
+  });
+
+  test("image badge renders for flashcard preview item with hasImage=true", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/decks/deck_123");
+
+    // Wait for the preview section to be rendered
+    await expect(page.getByRole("heading", { level: 2, name: /^flashcards$/i })).toBeVisible();
+
+    const previewList = page.locator("ul.flat-list");
+    await expect(previewList).toBeVisible();
+
+    // The badge span should be visible for the fc_3 item (adiós, hasImage: true)
+    const imageBadge = previewList.locator("span.flashcard-preview__image-badge");
+    await expect(imageBadge).toBeVisible();
+    await expect(imageBadge).toHaveText("image");
   });
 });
