@@ -4,7 +4,7 @@
 - **ADR:** `docs/adr/0018-deck-details-page-enhancement.md`
 - **Delivery date:** 2026-04-08
 - **Scope:** Frontend-only — no backend or API contract changes
-- **Gate status:** 🔴 BLOCKED — pending AC-6 Escape key fix (see Blocking Items)
+- **Gate status:** ✅ READY — all gates passed, code-review sign-off 2026-04-08
 
 ---
 
@@ -104,43 +104,34 @@ navigation round-trip. The flow matches the established inline flashcard delete 
 |-------|--------|-------|--------|
 | Frontend implementation | 14 | 93 | ✅ Pass |
 | QA additions (+3 route + HTTP autotest) | 14 | 96 | ✅ Pass |
+| ISSUE-001 fix (+1 Escape-from-error-state test) | 14 | 97 | ✅ Pass |
 | Build | — | — | ✅ Pass |
 
 Test scope includes: Cancel renders/absent prop, Cancel click calls `onCancel`, Cancel
 disabled during submit, preview loading/error/empty/list/pagination states, delete state
-machine transitions, focus restoration on Cancel/Escape (confirming state), image badge
-render, route-level navigation targets, `pageSize=10` HTTP autotest.
+machine transitions, focus restoration on Cancel/Escape (confirming **and** error states),
+image badge render, route-level navigation targets, `pageSize=10` HTTP autotest.
 
 ---
 
-## Blocking Items (Quality Gate)
+## ISSUE-001: Escape Key in Error States — Resolved
 
-> **Gate status: FAIL — 1 blocking defect found by code-review**
+**Discovered by:** code-review (initial gate)  
+**Fixed in:** commit `2c9bb2d`  
+**Status:** ✅ Closed — verified by final code-review gate (2026-04-08)
 
-```yaml
-issue_tasks:
-  - id: "ISSUE-001"
-    source_agent: "code-review"
-    severity: "high"
-    type: "bug"
-    title: "Escape key handler not active in error states"
-    description: >
-      The Escape key handler in DeckDetailRoute only guards against states that are not
-      'confirming', so it exits early when deleteState is any error state
-      (error_concurrency, error_persistence, error_generic). AC-6 and ADR 0018 explicitly
-      require Escape support in both confirming and error states. Users who encounter a
-      deletion error cannot use Escape to dismiss the panel — they must click Cancel,
-      creating an accessibility gap and a direct AC-6 violation.
-    evidence:
-      - "src/Tenax.Web/frontend/src/routes/decks.$deckId.tsx — Escape handler guard: `if (deleteState !== 'confirming') { return; }`"
-      - "ADR 0018 line 108: 'keydown listener for Escape is active while deleteState is confirming or error'"
-      - "decks.routes.test.tsx — Escape tested only from confirming state; no test for Escape from error states"
-    acceptance_fix:
-      - "Escape key handler must dismiss the panel and restore focus to deleteTriggerRef when deleteState is confirming OR any error state (error_concurrency, error_persistence, error_generic)"
-      - "At least one test must verify Escape from an error state (e.g., error_generic) returns to idle and restores focus"
-    recommended_owner_agent: "Frontend Developer"
-    blocking_release: true
-```
+The initial code-review pass identified that the Escape key handler in `DeckDetailRoute`
+only checked `deleteState !== 'confirming'`, causing it to silently exit for all three
+error states (`error_concurrency`, `error_persistence`, `error_generic`). This directly
+violated AC-6 and ADR 0018 line 108, which both mandate Escape support while the
+confirmation/error panel is visible.
+
+**Fix applied (commit `2c9bb2d`):**
+- Guard widened to cover `confirming` **and** all error states (equivalent to `isDeleteActive(deleteState)`)
+- Focus restoration to `deleteTriggerRef` improved to fire on every panel dismissal, not only from `confirming`
+- One new test added: Escape from `error_generic` → idle + focus restored to trigger button
+
+**Final code-review verdict:** APPROVED FOR RELEASE — `issue_tasks: []`
 
 ---
 
@@ -171,16 +162,24 @@ issue_tasks:
 | Architecture + ADR | Architect | ✅ |
 | Design handoff (3 batches) | Design Handoff | ✅ |
 | Frontend implementation (6 ACs) | Frontend Developer | ✅ |
-| Documentation | Techwriter | ✅ |
+| Documentation | Techwriter | ✅ (commit `7ec89bf`) |
 | QA verification (96 tests, `issue_tasks: []`) | QA | ✅ |
-| Code quality gate | code-review | 🔴 FAIL (ISSUE-001) |
+| Code quality gate (initial) | code-review | 🔴 FAIL → ISSUE-001 opened |
+| ISSUE-001 fix (Escape + focus; +1 test → 97 total) | Frontend Developer | ✅ (commit `2c9bb2d`) |
+| Code quality gate (final) | code-review | ✅ PASS — `issue_tasks: []` — signed off 2026-04-08 |
 
 ---
 
 ## Final Recommendation
 
-**NOT READY** — blocked on ISSUE-001 (Escape key handler not active in error states).
+**✅ READY FOR RELEASE**
 
-Once `Frontend Developer` delivers the AC-6 fix (Escape support from error states + test
-coverage), re-run the full test suite, re-execute the `code-review` gate, and update this
-document before merging.
+All 7 pipeline stage gates satisfied. One blocking defect (ISSUE-001) was discovered during
+the initial code-review pass, triaged immediately, fixed by Frontend Developer in commit
+`2c9bb2d`, and confirmed closed by the final code-review gate on 2026-04-08.
+
+- **14 test suites · 97 tests · build passing**
+- No API, backend, data model, or configuration changes
+- Backward-compatible optional-prop addition only
+- `issue_tasks: []` from both QA and final code-review
+- ADR 0018 fully satisfied including AC-6 (Escape + focus restoration in all active states)
