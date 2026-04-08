@@ -158,3 +158,42 @@ Simply increase the validator maximum to allow study mode's existing `pageSize=5
 - `docs/contracts/api/flashcards-list-shuffle-contract.yaml` is the source of truth for both tracks.
 - Backend must return `400` with `shuffleSeed` field error before frontend wires the toggle.
 - Both tracks can develop against the contract independently; integration point is the new query params and the unchanged `200` response schema.
+
+---
+
+## Implementation Notes
+
+_Recorded after delivery of commit `66dad84` (feat) + `239b699` (tests)._
+
+### `InMemoryFlashcardRepository` also updated
+
+The Backend Track steps listed `EfFlashcardRepository` as the only repository requiring change. In practice, `InMemoryFlashcardRepository` (used as a test double in unit and integration tests) was also updated to accept the `shuffle` and `shuffleSeed` parameters on `ListByDeckAsync`.
+
+The in-memory shuffle implementation uses `StringComparer.Ordinal` on the concatenated string `$"{card.Id}{shuffleSeed}"` to produce a deterministic order. This is **not equivalent to `hashtext()`** — for a given seed, the in-memory and PostgreSQL orderings will differ. The in-memory double satisfies the behavioural contract (deterministic, seed-stable) but does not reproduce the exact PostgreSQL hash order. Tests that assert specific card positions should target the PostgreSQL-backed integration path.
+
+### `EfFlashcardRepository` uses `FromSqlInterpolated`
+
+The ADR noted the implementation could use either a raw SQL fragment or `EF.Functions`. The implementation chose `DbSet<Flashcard>.FromSqlInterpolated(...)` with a fully parameterised raw SQL query:
+
+```sql
+SELECT *
+FROM flashcards
+WHERE deck_id = {deckId}
+ORDER BY hashtext(id::text || {shuffleSeed})
+LIMIT {take}
+OFFSET {skip}
+```
+
+EF Core parameter interpolation ensures `deckId` and `shuffleSeed` are passed as query parameters (not string-concatenated into SQL), so there is no SQL-injection risk.
+
+### Validator error message unified for absent and empty seed
+
+The contract examples (`flashcards-list-shuffle-contract.yaml`) show two distinct error messages:
+- absent seed → `"shuffleSeed is required when shuffle is true"`
+- empty string → `"shuffleSeed must not be empty"`
+
+The implementation uses a single `NotEmpty().WithMessage("shuffleSeed is required when shuffle is true")` rule, which covers both the null/absent and empty-string cases with the same message. Both conditions correctly produce `400 validation_error`; only the message text differs from the contract example for the empty-string case.
+
+### API Notes reference
+
+See `docs/api-notes/flashcards-list-shuffle.md` for a concise consumer-facing reference covering the breaking `pageSize` change, new query parameters, ordering behaviour, and validation rules.

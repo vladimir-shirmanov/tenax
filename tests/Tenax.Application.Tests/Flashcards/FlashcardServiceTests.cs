@@ -84,6 +84,27 @@ public sealed class FlashcardServiceTests
     }
 
     [Fact]
+    public async Task ListAsync_ShouldPassShuffleArguments_ToRepository()
+    {
+        var service = CreateService();
+        _deckRepository.GetByIdAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(CreateDeck("deck_owned", "usr_42"));
+        _flashcardRepository.ListByDeckAsync(
+                "deck_owned",
+                0,
+                20,
+                true,
+                "seed-123",
+                Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Flashcard>());
+        _flashcardRepository.CountByDeckAsync("deck_owned", Arg.Any<CancellationToken>()).Returns(0);
+
+        var result = await service.ListAsync(new ListFlashcardsInput("deck_owned", 1, 20, "usr_42", true, "seed-123"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        await _flashcardRepository.Received(1).ListByDeckAsync("deck_owned", 0, 20, true, "seed-123", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task GetDetailAsync_ShouldReturnNotFound_WhenFlashcardIsMissing()
     {
         var service = CreateService();
