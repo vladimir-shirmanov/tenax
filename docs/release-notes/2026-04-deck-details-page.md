@@ -90,6 +90,11 @@ navigation round-trip. The flow matches the established inline flashcard delete 
 - `tests/http/flashcards-authoring-management.http`
 - `tests/http/flashcards-authoring-management.postman_collection.json`
 
+**Post-release follow-ups (3 files):**
+- `src/Tenax.Web/frontend/src/styles.css` (dark mode contrast fix)
+- `src/Tenax.Web/frontend/src/routes/decks.$deckId.delete-flow.ts` (new hook)
+- `src/Tenax.Web/frontend/src/routes/decks.$deckId.delete-flow.test.ts` (new hook tests)
+
 **Documentation (4 files):**
 - `docs/adr/0018-deck-details-page-enhancement.md`
 - `docs/contracts/api/deck-details-page-no-new-api-contract.yaml`
@@ -105,6 +110,7 @@ navigation round-trip. The flow matches the established inline flashcard delete 
 | Frontend implementation | 14 | 93 | ✅ Pass |
 | QA additions (+3 route + HTTP autotest) | 14 | 96 | ✅ Pass |
 | ISSUE-001 fix (+1 Escape-from-error-state test) | 14 | 97 | ✅ Pass |
+| Post-release follow-ups (+7 hook tests) | 14 | 104 | ✅ Pass |
 | Build | — | — | ✅ Pass |
 
 Test scope includes: Cancel renders/absent prop, Cancel click calls `onCancel`, Cancel
@@ -137,10 +143,7 @@ confirmation/error panel is visible.
 
 ## Known Non-Blocking Follow-Up Items
 
-1. **Dark mode badge contrast** — `.flashcard-preview__image-badge` uses
-   `color-mix(in srgb, var(--accent-tertiary) 10%, transparent)`; contrast against dark
-   theme tokens has not been formally verified via automated tooling. QA visual check
-   recommended before next major release.
+1. ~~**Dark mode badge contrast**~~ — ✅ Resolved in commit `9e23899`: `--accent-tertiary` and `--focus-ring` overridden in dark theme to `#818fff` (5.54:1 contrast ratio, WCAG AA pass).
 
 2. **Playwright visual regression baselines** — Inline delete confirm panel and image badge
    appearances across light and dark themes have no captured visual regression baselines.
@@ -150,8 +153,7 @@ confirmation/error panel is visible.
    and the Postman collection were not exercised in this delivery. Manual execution against
    a running instance is recommended before the next QA cycle.
 
-4. **Delete state machine extraction** — Consider extracting the inline delete flow to a
-   `useDeleteDeckFlow` custom hook if `DeckDetailRoute` grows further.
+4. ~~**Delete state machine extraction**~~ — ✅ Resolved in commit `76c42ba`: `useDeleteDeckFlow` hook extracted to `decks.$deckId.delete-flow.ts` with 7 unit tests.
 
 ---
 
@@ -178,7 +180,7 @@ All 7 pipeline stage gates satisfied. One blocking defect (ISSUE-001) was discov
 the initial code-review pass, triaged immediately, fixed by Frontend Developer in commit
 `2c9bb2d`, and confirmed closed by the final code-review gate on 2026-04-08.
 
-- **14 test suites · 97 tests · build passing**
+- **14 test suites · 104 tests · build passing**
 - No API, backend, data model, or configuration changes
 - Backward-compatible optional-prop addition only
 - `issue_tasks: []` from both QA and final code-review

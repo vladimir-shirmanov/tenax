@@ -128,3 +128,8 @@ Deliver three independent, additive enhancements to the Deck Details page and it
 - Known remaining work:
   - Dark mode contrast QA for `.flashcard-preview__image-badge` (Playwright visual check against dark theme tokens has not been run).
   - Playwright visual regression check for the inline delete confirm panel across light and dark themes.
+
+### Post-Release Follow-Ups (2026-04-08)
+- Dark mode WCAG AA contrast fix: `--accent-tertiary` and `--focus-ring` overridden to `#818fff` in `[data-theme="dark"]` (commit `9e23899`).
+- Delete state machine extracted to `useDeleteDeckFlow` hook in `decks.$deckId.delete-flow.ts` with hook-level unit tests (commit `76c42ba`).
+- Final test count: **104 tests passing**, build passing. All four originally-flagged non-blocking items closed (Playwright baselines and HTTP E2E execution remain infrastructure-gated).
