@@ -1,92 +1,44 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import {
   getApiErrorMessage,
-  isConcurrencyConflictError,
   isDeckNotFoundError,
   isForbiddenError,
-  isPersistenceUnavailableError as isPersistenceUnavailableApiError,
   isPersistenceUnavailableError,
 } from "../api/errors";
 import { useFlashcardListQuery } from "../api/flashcards";
-import { useDeckDetailQuery, useDeleteDeckMutation } from "../api/decks";
+import { useDeckDetailQuery } from "../api/decks";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { PageScaffold } from "../components/PageScaffold";
 import { pluralize } from "../lib/format";
+import { useDeleteDeckFlow } from "./decks.$deckId.delete-flow";
 
 export const DeckDetailRoute = () => {
-  const navigate = useNavigate();
   const { deckId = "" } = useParams();
   const [previewPage, setPreviewPage] = useState(1);
-  const [deleteState, setDeleteState] = useState<
-    "idle" | "confirming" | "error_concurrency" | "error_persistence" | "error_generic"
-  >("idle");
-  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
-  const confirmDeleteRef = useRef<HTMLButtonElement>(null);
-  const previousDeleteStateRef = useRef(deleteState);
   const detailQuery = useDeckDetailQuery(deckId);
   const previewQuery = useFlashcardListQuery(deckId, previewPage, 10);
-  const deleteMutation = useDeleteDeckMutation(deckId);
+  const {
+    deleteState,
+    isDeleting,
+    deleteTriggerRef,
+    confirmDeleteRef,
+    startConfirming,
+    cancelConfirm,
+    confirmDelete,
+    dismissError,
+    retryFromError,
+  } = useDeleteDeckFlow(deckId);
 
   useEffect(() => {
     setPreviewPage(1);
-    setDeleteState("idle");
   }, [deckId]);
-
-  useEffect(() => {
-    const previousDeleteState = previousDeleteStateRef.current;
-    if (deleteState === "confirming") {
-      confirmDeleteRef.current?.focus();
-    }
-    if (deleteState === "idle" && previousDeleteState !== "idle") {
-      deleteTriggerRef.current?.focus();
-    }
-    previousDeleteStateRef.current = deleteState;
-  }, [deleteState]);
-
-  useEffect(() => {
-    const escapableStates = ["confirming", "error_concurrency", "error_persistence", "error_generic"] as const;
-    if (!(escapableStates as readonly string[]).includes(deleteState)) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDeleteState("idle");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [deleteState]);
 
   const totalPreviewCount = previewQuery.data?.totalCount ?? 0;
   const showingStart = totalPreviewCount > 0 ? (previewPage - 1) * 10 + 1 : 0;
   const showingEnd = totalPreviewCount > 0 ? Math.min(previewPage * 10, totalPreviewCount) : 0;
   const canGoPrevious = previewPage > 1;
   const canGoNext = previewPage * 10 < totalPreviewCount;
-  const isDeleting = deleteMutation.isPending;
-
-  const handleConfirmDelete = () => {
-    deleteMutation.mutate(undefined, {
-      onSuccess: () => {
-        navigate("/decks");
-      },
-      onError: (error) => {
-        if (isConcurrencyConflictError(error)) {
-          setDeleteState("error_concurrency");
-          return;
-        }
-        if (isPersistenceUnavailableApiError(error)) {
-          setDeleteState("error_persistence");
-          return;
-        }
-        setDeleteState("error_generic");
-      },
-    });
-  };
 
   return (
     <PageScaffold
@@ -243,7 +195,7 @@ export const DeckDetailRoute = () => {
               type="button"
               className="button button--danger"
               onClick={() => {
-                setDeleteState("confirming");
+                startConfirming();
               }}
             >
               Delete deck
@@ -265,7 +217,7 @@ export const DeckDetailRoute = () => {
                   ref={confirmDeleteRef}
                   type="button"
                   className="button button--danger"
-                  onClick={handleConfirmDelete}
+                  onClick={confirmDelete}
                   disabled={isDeleting}
                 >
                   {isDeleting ? "Deleting..." : "Confirm delete"}
@@ -273,7 +225,7 @@ export const DeckDetailRoute = () => {
                 <button
                   type="button"
                   className="button button--ghost"
-                  onClick={() => setDeleteState("idle")}
+                  onClick={cancelConfirm}
                   disabled={isDeleting}
                 >
                   Cancel
@@ -289,7 +241,7 @@ export const DeckDetailRoute = () => {
                   <button
                     type="button"
                     className="button button--ghost"
-                    onClick={() => setDeleteState("idle")}
+                    onClick={dismissError}
                   >
                     Dismiss
                   </button>
@@ -305,14 +257,14 @@ export const DeckDetailRoute = () => {
                     <button
                       type="button"
                       className="button button--ghost"
-                      onClick={() => setDeleteState("confirming")}
+                      onClick={retryFromError}
                     >
                       Try again
                     </button>
                     <button
                       type="button"
                       className="button button--ghost"
-                      onClick={() => setDeleteState("idle")}
+                      onClick={dismissError}
                     >
                       Dismiss
                     </button>
@@ -329,14 +281,14 @@ export const DeckDetailRoute = () => {
                     <button
                       type="button"
                       className="button button--ghost"
-                      onClick={() => setDeleteState("confirming")}
+                      onClick={retryFromError}
                     >
                       Try again
                     </button>
                     <button
                       type="button"
                       className="button button--ghost"
-                      onClick={() => setDeleteState("idle")}
+                      onClick={dismissError}
                     >
                       Dismiss
                     </button>
