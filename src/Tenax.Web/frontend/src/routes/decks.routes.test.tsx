@@ -13,6 +13,17 @@ const jsonResponse = (status: number, body: unknown) =>
     text: async () => JSON.stringify(body),
   } as Response);
 
+const deckDetailPayload = {
+  id: "deck_123",
+  name: "Spanish Basics",
+  description: "Everyday greetings",
+  flashcardCount: 12,
+  createdAtUtc: "2026-03-17T09:00:00Z",
+  updatedAtUtc: "2026-03-17T09:45:00Z",
+  createdByUserId: "usr_42",
+  updatedByUserId: "usr_42",
+};
+
 describe("deck routes", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -377,5 +388,233 @@ describe("deck routes", () => {
       (call) => (call[1] as RequestInit | undefined)?.method === "PUT"
     );
     expect(putCalls).toHaveLength(0);
+  });
+
+  it("renders flashcard preview loading state", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123")) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return new Promise(() => undefined) as Promise<Response>;
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    expect(await screen.findByText(/loading flashcards/i)).toBeInTheDocument();
+  });
+
+  it("renders flashcard preview empty state with add link", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123")) {
+        return jsonResponse(200, { ...deckDetailPayload, flashcardCount: 0 });
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, { items: [], page: 1, pageSize: 10, totalCount: 0 });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    expect(await screen.findByText(/no flashcards in this deck yet/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /add your first flashcard/i })).toHaveAttribute(
+      "href",
+      "/decks/deck_123/flashcards/new"
+    );
+  });
+
+  it("renders flashcard preview error state and retries", async () => {
+    let listAttempts = 0;
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123")) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        listAttempts += 1;
+        if (listAttempts < 3) {
+          return jsonResponse(500, { code: "server_error", message: "Something failed" });
+        }
+
+        return jsonResponse(200, {
+          items: [],
+          page: 1,
+          pageSize: 10,
+          totalCount: 0,
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    expect(
+      await screen.findByText(/could not load flashcards/i, {}, { timeout: 5000 })
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(await screen.findByText(/no flashcards in this deck yet/i)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]).includes("pageSize=10")).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders flashcard preview list, image badge, pagination, and view all link", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123")) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, {
+          items: Array.from({ length: 10 }).map((_, index) => ({
+            id: `fc_${index + 1}`,
+            deckId: "deck_123",
+            term: `term ${index + 1}`,
+            definitionPreview: `definition ${index + 1}`,
+            hasImage: index === 0,
+            updatedAtUtc: "2026-03-15T12:00:00Z",
+            updatedByUserId: "usr_1",
+          })),
+          page: 1,
+          pageSize: 10,
+          totalCount: 12,
+        });
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=2&pageSize=10")) {
+        return jsonResponse(200, {
+          items: [
+            {
+              id: "fc_11",
+              deckId: "deck_123",
+              term: "term 11",
+              definitionPreview: "definition 11",
+              hasImage: false,
+              updatedAtUtc: "2026-03-15T12:00:00Z",
+              updatedByUserId: "usr_1",
+            },
+            {
+              id: "fc_12",
+              deckId: "deck_123",
+              term: "term 12",
+              definitionPreview: "definition 12",
+              hasImage: false,
+              updatedAtUtc: "2026-03-15T12:00:00Z",
+              updatedByUserId: "usr_1",
+            },
+          ],
+          page: 2,
+          pageSize: 10,
+          totalCount: 12,
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    expect(await screen.findByRole("heading", { name: "Flashcards" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view all flashcards/i })).toHaveAttribute(
+      "href",
+      "/decks/deck_123/flashcards"
+    );
+    expect(screen.getByRole("link", { name: "term 1" })).toHaveClass("flat-list__title");
+    expect(screen.getByText("definition 1")).toBeInTheDocument();
+    expect(screen.getByText("image")).toHaveClass("flashcard-preview__image-badge");
+    expect(screen.getByText("Showing 1–10 of 12 flashcards")).toBeInTheDocument();
+
+    const previousButton = screen.getByRole("button", { name: /previous/i });
+    const nextButton = screen.getByRole("button", { name: /next/i });
+    expect(previousButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+
+    await userEvent.click(nextButton);
+
+    expect(await screen.findByText("Showing 11–12 of 12 flashcards")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /previous/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /next/i })).toBeDisabled();
+  });
+
+  it("handles inline delete flow states", async () => {
+    let deleteAttempt = 0;
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123") && !init?.method) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, {
+          items: [],
+          page: 1,
+          pageSize: 10,
+          totalCount: 0,
+        });
+      }
+
+      if (url.endsWith("/api/decks/deck_123") && init?.method === "DELETE") {
+        deleteAttempt += 1;
+        if (deleteAttempt === 1) {
+          return jsonResponse(409, {
+            code: "concurrency_conflict",
+            message: "Conflict",
+          });
+        }
+
+        return jsonResponse(503, {
+          code: "persistence_unavailable",
+          message: "Service unavailable",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    expect(await screen.findByRole("button", { name: /delete deck/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /delete deck/i }));
+    expect(
+      screen.getByText(/are you sure you want to delete this deck\? this action cannot be undone\./i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm delete/i })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(screen.getByRole("button", { name: /delete deck/i })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole("button", { name: /delete deck/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+    expect(
+      await screen.findByText(/this deck was modified by another action\. refresh the page to see the latest state before retrying\./i)
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /dismiss/i }));
+    expect(screen.getByRole("button", { name: /delete deck/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /delete deck/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+    expect(
+      await screen.findByText(/service temporarily unavailable\. please try again\./i)
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(screen.getByRole("button", { name: /confirm delete/i })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: /delete deck/i })).toBeInTheDocument();
+
+    const deleteCalls = fetchMock.mock.calls.filter(
+      (call) => String(call[0]).endsWith("/api/decks/deck_123") && (call[1] as RequestInit | undefined)?.method === "DELETE"
+    );
+    expect(deleteCalls).toHaveLength(2);
   });
 });
