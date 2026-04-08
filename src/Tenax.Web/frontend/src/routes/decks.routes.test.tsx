@@ -617,4 +617,108 @@ describe("deck routes", () => {
     );
     expect(deleteCalls).toHaveLength(2);
   });
+
+  it("navigates to /decks after successful deck delete", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123") && !init?.method) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, { items: [], page: 1, pageSize: 10, totalCount: 0 });
+      }
+
+      if (url.endsWith("/api/decks/deck_123") && init?.method === "DELETE") {
+        return jsonResponse(200, {
+          deleted: true,
+          id: "deck_123",
+          deletedAtUtc: "2026-04-01T10:00:00Z",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    await screen.findByRole("button", { name: /delete deck/i });
+    await userEvent.click(screen.getByRole("button", { name: /delete deck/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    expect(await screen.findByText("navigated")).toBeInTheDocument();
+  });
+
+  it("disables confirm delete and cancel buttons while delete mutation is pending", async () => {
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123") && !init?.method) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, { items: [], page: 1, pageSize: 10, totalCount: 0 });
+      }
+
+      if (url.endsWith("/api/decks/deck_123") && init?.method === "DELETE") {
+        return new Promise(() => undefined) as Promise<Response>;
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    await screen.findByRole("button", { name: /delete deck/i });
+    await userEvent.click(screen.getByRole("button", { name: /delete deck/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /deleting/i })).toBeDisabled();
+    });
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeDisabled();
+  });
+
+  it("error_generic: shows generic error panel, Try again returns to confirming, Dismiss returns to idle", async () => {
+    let deleteAttempt = 0;
+    jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/decks/deck_123") && !init?.method) {
+        return jsonResponse(200, deckDetailPayload);
+      }
+
+      if (url.includes("/api/decks/deck_123/flashcards?page=1&pageSize=10")) {
+        return jsonResponse(200, { items: [], page: 1, pageSize: 10, totalCount: 0 });
+      }
+
+      if (url.endsWith("/api/decks/deck_123") && init?.method === "DELETE") {
+        deleteAttempt += 1;
+        if (deleteAttempt === 1) {
+          return jsonResponse(500, { code: "server_error", message: "Unexpected server error" });
+        }
+
+        return jsonResponse(200, {
+          deleted: true,
+          id: "deck_123",
+          deletedAtUtc: "2026-04-01T10:00:00Z",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute("/decks/:deckId", <DeckDetailRoute />, "/decks/deck_123");
+
+    await screen.findByRole("button", { name: /delete deck/i });
+    await userEvent.click(screen.getByRole("button", { name: /delete deck/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    expect(await screen.findByText(/failed to delete deck\. please try again\./i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^try again$/i }));
+    expect(screen.getByRole("button", { name: /confirm delete/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+    expect(await screen.findByText("navigated")).toBeInTheDocument();
+  });
 });

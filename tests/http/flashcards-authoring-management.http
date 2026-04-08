@@ -75,6 +75,22 @@ Content-Type: application/json
 ?? body code == deck_not_found
 ?? body message == Deck not found
 
+### List flashcards - preview page size used by DeckDetailRoute (200)
+# Validates the endpoint supports pageSize=10 as consumed by the embedded flashcard preview
+GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+?? status == 200
+?? header content-type includes json
+?? body items isArray
+?? body page == 1
+?? body pageSize == 10
+?? body totalCount >= 0
+?? js response.parsedBody.items.every(item => item.id != null)
+?? js response.parsedBody.items.every(item => item.term != null)
+?? js response.parsedBody.items.every(item => item.definitionPreview != null)
+?? js response.parsedBody.items.every(item => typeof item.hasImage === 'boolean')
+
 ### List flashcards - success (200)
 GET {{baseUrl}}/api/decks/{{deckId}}/flashcards?page=1&pageSize=50
 Authorization: Bearer {{token}}
