@@ -89,6 +89,7 @@ export const StudyModeRoute = () => {
   const activeFlashcardId = activeCard?.id ?? "";
   const detailQuery = useFlashcardDetailQuery(deckId, activeFlashcardId);
   const isComplete = currentCardIndex >= totalCount - 1 && loadedCards.length >= totalCount;
+  const isWaitingForNextBatch = currentCardIndex >= loadedCards.length - 1 && loadedCards.length < totalCount;
 
   const handleNext = useCallback(() => {
     if (isComplete || loadedCards.length === 0) {
@@ -138,7 +139,11 @@ export const StudyModeRoute = () => {
   }, []);
 
   useEffect(() => {
-    if (!flashcardQuery.data?.items) {
+    if (!flashcardQuery.data?.items || flashcardQuery.isPlaceholderData) {
+      return;
+    }
+
+    if (flashcardQuery.data.page !== currentPage) {
       return;
     }
 
@@ -151,7 +156,7 @@ export const StudyModeRoute = () => {
     setLoadedCards((previousCards) =>
       accumulateStudyCards(previousCards, flashcardQuery.data?.items ?? [], flashcardQuery.data?.page ?? 1)
     );
-  }, [flashcardQuery.data]);
+  }, [currentPage, flashcardQuery.data, flashcardQuery.isPlaceholderData]);
 
   useEffect(() => {
     if (!activeCard || isComplete || currentCardIndex >= loadedCards.length - 1) {
@@ -164,8 +169,8 @@ export const StudyModeRoute = () => {
     }
 
     void queryClient.prefetchQuery({
-        queryKey: flashcardKeys.detail(deckId, nextCard.id),
-        queryFn: () => requestJson<FlashcardDetail>(`/api/decks/${deckId}/flashcards/${nextCard.id}`),
+      queryKey: flashcardKeys.detail(deckId, nextCard.id),
+      queryFn: () => requestJson<FlashcardDetail>(`/api/decks/${deckId}/flashcards/${nextCard.id}`),
     });
   }, [activeCard, currentCardIndex, deckId, isComplete, loadedCards, queryClient]);
 
@@ -216,6 +221,25 @@ export const StudyModeRoute = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleNext, handlePrevious, isComplete]);
+
+  // Reset all study state when navigating to a different deck so stale refs
+  // and indices from the previous deck cannot bleed into the new session.
+  const prevDeckIdRef = useRef(deckId);
+  useEffect(() => {
+    if (prevDeckIdRef.current === deckId) {
+      prevDeckIdRef.current = deckId;
+      return;
+    }
+    prevDeckIdRef.current = deckId;
+    shuffleSeedRef.current = crypto.randomUUID();
+    requestedPagesRef.current = new Set([1]);
+    setShuffleEnabled(false);
+    setCurrentPage(1);
+    setLoadedCards([]);
+    setTotalCount(0);
+    setCurrentCardIndex(0);
+    setIsFlipped(false);
+  }, [deckId]);
 
   const handleToggleShuffle = () => {
     setShuffleEnabled((current) => !current);
@@ -333,7 +357,7 @@ export const StudyModeRoute = () => {
           <button
             type="button"
             aria-pressed={isFlipped}
-              className={`flashcard-study-card${isFlipped ? " is-flipped" : ""}${prefersReducedMotion ? " flashcard-study-card--reduced-motion" : ""}`}
+            className={`flashcard-study-card${isFlipped ? " is-flipped" : ""}${prefersReducedMotion ? " flashcard-study-card--reduced-motion" : ""}`}
             onClick={() => {
               setIsFlipped((current) => !current);
             }}
@@ -378,8 +402,8 @@ export const StudyModeRoute = () => {
                 ))}
               </div>
             ) : null}
-            <button type="button" className="button button--primary" onClick={handleNext}>
-              {currentCardIndex >= totalCount - 1 ? "Finish" : "Next →"}
+            <button type="button" className="button button--primary" onClick={handleNext} disabled={isWaitingForNextBatch}>
+              {isWaitingForNextBatch ? "Loading…" : currentCardIndex >= totalCount - 1 ? "Finish" : "Next →"}
             </button>
           </div>
         </>

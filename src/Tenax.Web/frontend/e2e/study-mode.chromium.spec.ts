@@ -70,11 +70,11 @@ const installStudyApiMocks = async (
       return;
     }
 
-    if (method === "GET" && path === "/api/decks/deck_123/flashcards" && url.search.includes("pageSize=500")) {
+    if (method === "GET" && path === "/api/decks/deck_123/flashcards" && url.searchParams.get("pageSize") === "20") {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ items: cards, page: 1, pageSize: 500, totalCount: cards.length }),
+        body: JSON.stringify({ items: cards, page: 1, pageSize: 20, totalCount: cards.length }),
       });
       return;
     }
@@ -113,11 +113,11 @@ const installEmptyDeckMocks = async (page: Page) => {
       return;
     }
 
-    if (method === "GET" && path === "/api/decks/deck_123/flashcards" && url.search.includes("pageSize=500")) {
+    if (method === "GET" && path === "/api/decks/deck_123/flashcards" && url.searchParams.get("pageSize") === "20") {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ items: [], page: 1, pageSize: 500, totalCount: 0 }),
+        body: JSON.stringify({ items: [], page: 1, pageSize: 20, totalCount: 0 }),
       });
       return;
     }

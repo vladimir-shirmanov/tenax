@@ -60,7 +60,7 @@ const renderStudyRoute = (queryClient: QueryClient) =>
 
 describe("study mode route lazy batching", () => {
   beforeEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
     mockUseDeckDetailQuery.mockReturnValue({
       data: { id: "deck_123", name: "Spanish Basics" },
     });

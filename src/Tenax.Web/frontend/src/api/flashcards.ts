@@ -3,6 +3,7 @@ import {
   QueryKey,
   useMutation,
   useQuery,
+  UseQueryResult,
   useQueryClient,
 } from "@tanstack/react-query";
 import { requestJson } from "./client";
@@ -35,12 +36,22 @@ type FlashcardListOptions = {
   shuffleSeed?: string;
 };
 
-export const useFlashcardListQuery = (
+export function useFlashcardListQuery(
+  deckId: string,
+  page: number,
+  pageSize?: number,
+  options?: FlashcardListOptions
+): UseQueryResult<FlashcardListResponse>;
+export function useFlashcardListQuery(
+  deckId: string,
+  options: FlashcardListOptions
+): UseQueryResult<FlashcardListResponse>;
+export function useFlashcardListQuery(
   deckId: string,
   pageOrOptions: number | FlashcardListOptions,
   pageSize?: number,
   options?: FlashcardListOptions
-) => {
+) {
   const resolvedOptions =
     typeof pageOrOptions === "number"
       ? {
