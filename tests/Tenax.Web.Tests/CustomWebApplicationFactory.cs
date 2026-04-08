@@ -34,7 +34,13 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         try
         {
-            return base.CreateHost(builder);
+            var host = base.CreateHost(builder);
+
+            using var scope = host.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<TenaxDbContext>();
+            dbContext.Database.Migrate();
+
+            return host;
         }
         finally
         {

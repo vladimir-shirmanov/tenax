@@ -1,10 +1,23 @@
 using System.Text.Json.Nodes;
-using Tenax.AppHost;
 
 namespace Tenax.AppHost.Tests;
 
 public class DevelopmentRealmImportTests
 {
+    private static readonly string[] ExpectedRedirectUris =
+    [
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5173/*",
+        "http://localhost:5173",
+        "http://localhost:5173/*"
+    ];
+
+    private static readonly string[] ExpectedWebOrigins =
+    [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173"
+    ];
+
     [Fact]
     public void RealmImport_DefinesPublicSpaClientAlignedWithProjectedFrontendDefaults()
     {
@@ -24,17 +37,11 @@ public class DevelopmentRealmImportTests
         var attributes = spaClient["attributes"]!.AsObject();
         var audienceMapper = GetProtocolMapper(spaClient, "audience-tenax-web-api");
 
-        Assert.Contains("http://127.0.0.1:*", redirectUris);
-        Assert.Contains("http://127.0.0.1:*/*", redirectUris);
-        Assert.Contains("http://localhost:*", redirectUris);
-        Assert.Contains("http://localhost:*/*", redirectUris);
-        Assert.DoesNotContain(redirectUris, value => value.Contains("*", StringComparison.Ordinal) && !value.StartsWith("http://127.0.0.1", StringComparison.Ordinal) && !value.StartsWith("http://localhost", StringComparison.Ordinal));
-
-        Assert.Single(webOrigins);
-        Assert.Equal("+", webOrigins[0]);
+        Assert.Equal(ExpectedRedirectUris, redirectUris);
+        Assert.Equal(ExpectedWebOrigins, webOrigins);
 
         Assert.Equal("S256", attributes["pkce.code.challenge.method"]!.GetValue<string>());
-        Assert.Equal("+", attributes["post.logout.redirect.uris"]!.GetValue<string>());
+        Assert.Equal("http://127.0.0.1:5173/*##http://localhost:5173/*", attributes["post.logout.redirect.uris"]!.GetValue<string>());
 
         Assert.Equal("oidc-audience-mapper", audienceMapper["protocolMapper"]!.GetValue<string>());
 

@@ -1,5 +1,3 @@
-using Tenax.AppHost;
-
 namespace Tenax.AppHost.Tests;
 
 public class AppHostEnvironmentDefaultsTests

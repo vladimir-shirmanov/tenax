@@ -3,6 +3,11 @@ using Tenax.AppHost;
 
 AppHostEnvironmentDefaults.ApplyProcessDefaults();
 
+const int webApiHttpPort = 5062;
+const int frontendHttpPort = 5173;
+const string webApiBaseUrl = "http://localhost:5062";
+const string frontendBaseUrl = "http://localhost:5173";
+
 var builder = DistributedApplication.CreateBuilder(args);
 var isDevelopment = builder.Environment.IsDevelopment();
 
@@ -10,6 +15,7 @@ var postgres = builder.AddPostgres("postgres");
 var tenaxDatabase = postgres.AddDatabase("Tenax", "tenax");
 
 var web = builder.AddProject<Projects.Tenax_Web>("tenax-web")
+    .WithEndpoint("http", endpoint => endpoint.Port = webApiHttpPort)
     .WithReference(tenaxDatabase)
     .WaitFor(tenaxDatabase)
     .WithOtlpExporter()
@@ -36,16 +42,25 @@ var skipFrontend = IsEnabled(Environment.GetEnvironmentVariable("TENAX_APPHOST_S
 if (!skipFrontend)
 {
     var frontend = builder.AddViteApp("tenax-frontend", "../Tenax.Web/frontend", "dev")
+        .WithEndpoint("http", endpoint =>
+        {
+            endpoint.Port = frontendHttpPort;
+            endpoint.TargetPort = frontendHttpPort;
+            endpoint.IsProxied = false;
+        })
         .WithReference(web)
         .WaitFor(web);
 
     if (isDevelopment)
     {
-        var frontendHttpEndpoint = frontend.GetEndpoint("http");
-
-        frontend.WithEnvironment(FrontendAuthEnvironment.FrontendOriginVariableName, ReferenceExpression.Create($"{frontendHttpEndpoint}"));
-        frontend.WithEnvironment(FrontendAuthEnvironment.RedirectUriVariableName, ReferenceExpression.Create($"{frontendHttpEndpoint}/"));
-        frontend.WithEnvironment(FrontendAuthEnvironment.PostLogoutRedirectUriVariableName, ReferenceExpression.Create($"{frontendHttpEndpoint}/"));
+        frontend.WithEnvironment("PORT", frontendHttpPort.ToString());
+        frontend.WithEnvironment("HOST", "127.0.0.1");
+        frontend.WithEnvironment("TENAX_FRONTEND_HOST", "127.0.0.1");
+        frontend.WithEnvironment("TENAX_FRONTEND_PORT", frontendHttpPort.ToString());
+        frontend.WithEnvironment(FrontendAuthEnvironment.FrontendOriginVariableName, frontendBaseUrl);
+        frontend.WithEnvironment(FrontendAuthEnvironment.RedirectUriVariableName, $"{frontendBaseUrl}/");
+        frontend.WithEnvironment(FrontendAuthEnvironment.PostLogoutRedirectUriVariableName, $"{frontendBaseUrl}/");
+        frontend.WithEnvironment("TENAX_API_PROXY_TARGET", webApiBaseUrl);
 
         foreach (var environmentVariable in FrontendAuthEnvironment.GetDevelopmentViteEnvironment(Environment.GetEnvironmentVariable))
         {

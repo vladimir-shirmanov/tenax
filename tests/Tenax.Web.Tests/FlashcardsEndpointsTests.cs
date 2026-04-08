@@ -4,7 +4,6 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Tenax.Application.Flashcards;
-using Xunit;
 
 namespace Tenax.Web.Tests;
 

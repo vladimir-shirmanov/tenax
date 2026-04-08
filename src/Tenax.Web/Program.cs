@@ -1,8 +1,6 @@
-using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Authorization;
 using Tenax.Application;
 using Tenax.Infrastructure;
-using Tenax.Infrastructure.Persistence;
 using Tenax.ServiceDefaults;
 using Tenax.Web.Authentication;
 using Tenax.Web.Errors;
@@ -22,8 +20,6 @@ builder.Services.AddTelemetryProxy();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
-
-await app.Services.ApplyMigrationsAsync(app.Environment.EnvironmentName);
 
 if (app.Environment.IsDevelopment())
 {
