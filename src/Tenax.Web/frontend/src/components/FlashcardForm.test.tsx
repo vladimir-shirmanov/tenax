@@ -88,4 +88,64 @@ describe("FlashcardForm", () => {
 
     expect(screen.getByRole("button", { name: /save changes/i })).toBeDisabled();
   });
+
+  it("does not render Cancel button when onCancel is not provided", () => {
+    render(
+      <FlashcardForm
+        submitLabel="Create flashcard"
+        isSubmitting={false}
+        onSubmit={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /^cancel$/i })).not.toBeInTheDocument();
+  });
+
+  it("renders Cancel button when onCancel is provided", () => {
+    render(
+      <FlashcardForm
+        submitLabel="Create flashcard"
+        isSubmitting={false}
+        onSubmit={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeInTheDocument();
+  });
+
+  it("Cancel button calls onCancel and does not submit form", async () => {
+    const user = userEvent.setup();
+    const onSubmit = jest.fn();
+    const onCancel = jest.fn();
+
+    render(
+      <FlashcardForm
+        submitLabel="Create flashcard"
+        isSubmitting={false}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />
+    );
+
+    await user.type(screen.getByLabelText(/term or phrase/i), "hola");
+    await user.type(screen.getByLabelText(/definition/i), "hello");
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("Cancel button is disabled while isSubmitting", () => {
+    render(
+      <FlashcardForm
+        submitLabel="Create flashcard"
+        isSubmitting
+        onSubmit={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeDisabled();
+  });
 });

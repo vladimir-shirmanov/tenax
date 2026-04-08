@@ -20,6 +20,7 @@ type DeckFormProps = {
   formError?: string;
   fieldErrors?: Record<string, string | undefined>;
   disableIfUnchanged?: boolean;
+  onCancel?: () => void;
   onSubmit: (payload: {
     name: string;
     description: string | null;
@@ -36,6 +37,7 @@ export const DeckForm = ({
   formError,
   fieldErrors,
   disableIfUnchanged,
+  onCancel,
   onSubmit,
 }: DeckFormProps) => {
   const initialName = initialValues?.name ?? "";
@@ -175,9 +177,21 @@ export const DeckForm = ({
         ) : null}
       </div>
 
-      <button type="submit" disabled={submitDisabled} className="button button--primary">
-        {isSubmitting ? "Saving..." : submitLabel}
-      </button>
+      <div className="section-row" style={{ justifyContent: "flex-start", gap: "0.6rem" }}>
+        <button type="submit" disabled={submitDisabled} className="button button--primary">
+          {isSubmitting ? "Saving..." : submitLabel}
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            className="button button--ghost"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 };
