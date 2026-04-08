@@ -346,4 +346,36 @@ describe("deck routes", () => {
     renderRoute("/decks/:deckId/edit", <DeckEditRoute />, "/decks/deck_123/edit");
     expect(await screen.findByRole("heading", { name: "Edit deck" })).toBeInTheDocument();
   });
+
+  it("navigates away on edit cancel without calling update", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/decks/deck_123")) {
+        return jsonResponse(200, {
+          id: "deck_123",
+          name: "Spanish Basics",
+          description: "Everyday greetings",
+          flashcardCount: 5,
+          createdAtUtc: "2026-03-17T09:00:00Z",
+          updatedAtUtc: "2026-03-17T09:45:00Z",
+          createdByUserId: "usr_42",
+          updatedByUserId: "usr_42",
+        });
+      }
+
+      return jsonResponse(404, { code: "deck_not_found", message: "Deck not found" });
+    });
+
+    renderRoute("/decks/:deckId/edit", <DeckEditRoute />, "/decks/deck_123/edit");
+
+    await screen.findByRole("button", { name: /save changes/i });
+    await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText("navigated")).toBeInTheDocument();
+    const putCalls = fetchMock.mock.calls.filter(
+      (call) => (call[1] as RequestInit | undefined)?.method === "PUT"
+    );
+    expect(putCalls).toHaveLength(0);
+  });
 });

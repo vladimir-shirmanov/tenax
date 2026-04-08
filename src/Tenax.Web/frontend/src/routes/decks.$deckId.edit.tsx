@@ -74,6 +74,9 @@ export const DeckEditRoute = () => {
               },
             });
           }}
+          onCancel={() => {
+            navigate(`/decks/${deckId}`);
+          }}
         />
       ) : null}
     </PageScaffold>

@@ -44,6 +44,9 @@ export const FlashcardCreateRoute = () => {
             },
           });
         }}
+        onCancel={() => {
+          navigate(`/decks/${deckId}`);
+        }}
       />
     </PageScaffold>
   );

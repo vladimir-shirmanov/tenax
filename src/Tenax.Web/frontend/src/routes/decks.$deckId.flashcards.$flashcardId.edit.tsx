@@ -80,6 +80,9 @@ export const FlashcardEditRoute = () => {
               },
             });
           }}
+          onCancel={() => {
+            navigate(`/decks/${deckId}/flashcards/${flashcardId}`);
+          }}
         />
       ) : null}
     </PageScaffold>

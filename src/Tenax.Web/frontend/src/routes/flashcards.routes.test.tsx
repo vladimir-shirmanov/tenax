@@ -699,4 +699,72 @@ describe("flashcard routes", () => {
     expect(await screen.findByRole("link", { name: "Spanish Basics" })).toHaveAttribute("href", "/decks/deck_123");
     expect(screen.queryByRole("link", { name: "deck_123" })).not.toBeInTheDocument();
   });
+
+  it("navigates away on flashcard edit cancel without calling update", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
+      if (url.endsWith("/api/decks/deck_123/flashcards/fc_1") && !init?.method) {
+        return jsonResponse(200, {
+          id: "fc_1",
+          deckId: "deck_123",
+          term: "hola",
+          definition: "hello",
+          imageUrl: null,
+          createdAtUtc: "2026-03-15T12:00:00Z",
+          updatedAtUtc: "2026-03-15T12:00:00Z",
+          createdByUserId: "usr_1",
+          updatedByUserId: "usr_1",
+        });
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/:flashcardId/edit",
+      <FlashcardEditRoute />,
+      "/decks/deck_123/flashcards/fc_1/edit"
+    );
+
+    await screen.findByRole("button", { name: /save changes/i });
+    await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText("navigated")).toBeInTheDocument();
+    const putCalls = fetchMock.mock.calls.filter(
+      (call) => (call[1] as RequestInit | undefined)?.method === "PUT"
+    );
+    expect(putCalls).toHaveLength(0);
+  });
+
+  it("navigates away on flashcard create cancel without calling create", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      const deckDetailResponse = mockDeckDetail(url);
+      if (deckDetailResponse) {
+        return deckDetailResponse;
+      }
+
+      return jsonResponse(404, { code: "not_found", message: "not found" });
+    });
+
+    renderRoute(
+      "/decks/:deckId/flashcards/new",
+      <FlashcardCreateRoute />,
+      "/decks/deck_123/flashcards/new"
+    );
+
+    await screen.findByRole("button", { name: /create flashcard/i });
+    await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(await screen.findByText("navigated")).toBeInTheDocument();
+    const postCalls = fetchMock.mock.calls.filter(
+      (call) => (call[1] as RequestInit | undefined)?.method === "POST"
+    );
+    expect(postCalls).toHaveLength(0);
+  });
 });
