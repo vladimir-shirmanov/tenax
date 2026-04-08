@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Tenax.Domain.Decks;
+using Tenax.Domain.Flashcards;
 using Tenax.Infrastructure.Persistence;
 using Tenax.Infrastructure.Persistence.Repositories;
 using Testcontainers.PostgreSql;
@@ -93,6 +94,35 @@ public sealed class EfDeckRepositoryTests : IAsyncLifetime
         Assert.False(deleted);
     }
 
+    [Fact]
+    public async Task DeckAndFlashcardNavigations_ShouldMaterializeAsOneToManyRelationship()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var deck = CreateDeck("deck_with_cards", "usr_42", DateTimeOffset.UtcNow);
+        var firstFlashcard = CreateFlashcard("fc_nav_1", deck.Id, DateTimeOffset.UtcNow.AddMinutes(-1));
+        var secondFlashcard = CreateFlashcard("fc_nav_2", deck.Id, DateTimeOffset.UtcNow);
+
+        dbContext.Decks.Add(deck);
+        dbContext.Flashcards.AddRange(firstFlashcard, secondFlashcard);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var persistedDeck = await dbContext.Decks
+            .AsNoTracking()
+            .Include(entity => entity.Flashcards)
+            .SingleAsync(entity => entity.Id == deck.Id, CancellationToken.None);
+
+        var persistedFlashcard = await dbContext.Flashcards
+            .AsNoTracking()
+            .Include(entity => entity.Deck)
+            .SingleAsync(entity => entity.Id == firstFlashcard.Id, CancellationToken.None);
+
+        Assert.Equal(2, persistedDeck.Flashcards.Count);
+        Assert.All(persistedDeck.Flashcards, flashcard => Assert.Equal(deck.Id, flashcard.DeckId));
+        Assert.Equal(deck.Id, persistedFlashcard.Deck.Id);
+        Assert.Equal(deck.Name, persistedFlashcard.Deck.Name);
+    }
+
     private TenaxDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<TenaxDbContext>()
@@ -113,5 +143,19 @@ public sealed class EfDeckRepositoryTests : IAsyncLifetime
             ownerUserId,
             ownerUserId,
             ownerUserId);
+    }
+
+    private static Flashcard CreateFlashcard(string id, string deckId, DateTimeOffset updatedAtUtc)
+    {
+        return new Flashcard(
+            id,
+            deckId,
+            "term",
+            "definition",
+            null,
+            updatedAtUtc.AddMinutes(-1),
+            updatedAtUtc,
+            "usr_42",
+            "usr_42");
     }
 }

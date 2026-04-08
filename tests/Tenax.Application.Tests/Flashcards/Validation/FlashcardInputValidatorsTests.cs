@@ -75,7 +75,7 @@ public sealed class FlashcardInputValidatorsTests
         var result = validator.Validate(new ListFlashcardsInput(
             "deck_owned",
             1,
-            51,
+            501,
             "usr_42"));
 
         Assert.False(result.IsValid);

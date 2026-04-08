@@ -1,3 +1,5 @@
+using Tenax.Domain.Decks;
+
 namespace Tenax.Domain.Flashcards;
 
 public sealed class Flashcard
@@ -27,6 +29,8 @@ public sealed class Flashcard
     public string Id { get; }
 
     public string DeckId { get; }
+
+    public Deck Deck { get; private set; } = null!;
 
     public string Term { get; private set; }
 

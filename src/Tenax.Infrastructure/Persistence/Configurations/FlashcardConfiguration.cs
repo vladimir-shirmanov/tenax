@@ -56,9 +56,10 @@ public sealed class FlashcardConfiguration : IEntityTypeConfiguration<Flashcard>
         builder.HasIndex(flashcard => new { flashcard.DeckId, flashcard.UpdatedAtUtc, flashcard.Id })
             .HasDatabaseName("ix_flashcards_deck_updated_id");
 
-        builder.HasOne<Deck>()
-            .WithMany()
+        builder.HasOne(flashcard => flashcard.Deck)
+            .WithMany(deck => deck.Flashcards)
             .HasForeignKey(flashcard => flashcard.DeckId)
+            .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
 
     }

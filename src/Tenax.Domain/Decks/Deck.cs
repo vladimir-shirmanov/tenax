@@ -1,3 +1,5 @@
+using Tenax.Domain.Flashcards;
+
 namespace Tenax.Domain.Decks;
 
 public sealed class Deck
@@ -21,6 +23,8 @@ public sealed class Deck
         CreatedByUserId = createdByUserId;
         UpdatedByUserId = updatedByUserId;
     }
+
+    public ICollection<Flashcard> Flashcards { get; } = new List<Flashcard>();
 
     public string Id { get; }
 
