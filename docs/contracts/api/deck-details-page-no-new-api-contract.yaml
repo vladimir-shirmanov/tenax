@@ -1,0 +1,109 @@
+contract_version: 1
+feature: "deck-details-page-enhancement"
+change_type: "no_api_response_contract_changes"
+endpoint:
+  method: "ANY"
+  path: "/api/*"
+  owner: "Backend Developer"
+
+request:
+  path_params: []
+  query_params: []
+  headers: []
+
+responses:
+  success:
+    status: 200
+    schema:
+      type: object
+      required: ["contractChange", "justification", "affectedContracts"]
+      properties:
+        contractChange:
+          type: string
+          enum: ["none"]
+        justification:
+          type: string
+        affectedContracts:
+          type: array
+          items:
+            type: string
+    example:
+      contractChange: "none"
+      justification: >
+        The deck details page enhancement (GitHub Issue #3) adds an optional Cancel button to
+        DeckForm and FlashcardForm, embeds a paginated flashcard preview on the deck detail page,
+        and introduces an inline delete-deck confirmation state machine — all frontend-only changes.
+        No backend HTTP response shapes, endpoint inventory, DTO fields, or status-code semantics
+        are modified. Existing contracts for GET /api/decks/{deckId} and
+        GET /api/decks/{deckId}/flashcards remain the authoritative sources of truth and are
+        consumed without modification.
+      affectedContracts:
+        - "decks-get-detail-contract.yaml"
+        - "decks-delete-contract.yaml"
+        - "flashcards-list-contract.yaml"
+
+  errors:
+    - status: 409
+      code: "contract_violation"
+      schema:
+        type: object
+        required: ["code", "message", "details"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details:
+            type: array
+            items: { type: string }
+      example:
+        code: "contract_violation"
+        message: "Detected API response shape drift without contract update during deck details page enhancement delivery"
+        details:
+          - "Do not add new backend endpoints as part of frontend-only detail page work"
+          - "Do not change deck or flashcard response payloads as part of this enhancement"
+          - "Update endpoint-specific contracts and ADRs before any API behavior change"
+
+    - status: 503
+      code: "delivery_scope_violation"
+      schema:
+        type: object
+        required: ["code", "message"]
+        properties:
+          code: { type: string }
+          message: { type: string }
+      example:
+        code: "delivery_scope_violation"
+        message: "Deck details page enhancement delivery attempted to expand into backend/API scope without approved architecture update"
+
+frontend_contract_notes:
+  query_key: >
+    Preview section uses useFlashcardListQuery(deckId, page, 10) with TanStack Query key
+    ["decks", deckId, "flashcards", { page, pageSize: 10 }]; existing query key shapes for
+    deck detail and flashcard list are preserved unchanged.
+  cache_policy: >
+    Preview section respects existing stale/refetch policy from useFlashcardListQuery.
+    Page state is local to DeckDetailRoute (useState) and does not affect the global query cache.
+    Delete mutation uses useDeleteDeckMutation with its existing invalidation behavior.
+  route_usage: >
+    DeckDetailRoute (decks.$deckId.tsx) is enhanced with the preview section and inline
+    delete flow. DeckEditRoute, FlashcardEditRoute, and FlashcardCreateRoute are enhanced
+    with Cancel button wiring only. FlashcardListRoute is not modified.
+  form_cancel_rules:
+    - "onCancel is optional on DeckForm and FlashcardForm; omitting it preserves existing behavior exactly"
+    - "Cancel button is type='button' and calls onCancel() immediately — no confirmation, no mutation"
+    - "Cancel is disabled during isSubmitting to prevent navigation away mid-request"
+  preview_rules:
+    - "pageSize is hardcoded to 10 in the preview section; FlashcardListRoute retains its own pageSize behavior"
+    - "Preview page state resets to 1 when deckId changes (useEffect dependency)"
+    - "Preview section does not affect FlashcardListRoute in any way"
+  delete_flow_rules:
+    - "Inline delete confirmation is not a <dialog> element; it renders inline within the page flow"
+    - "On success, DeckDetailRoute navigates to /decks via useNavigate()"
+    - "Error classification uses isConcurrencyConflictError (409) and isPersistenceUnavailableError (503)"
+
+compatibility_rules:
+  additive_only: true
+  breaking_change_process: "requires ADR update"
+  no_change_guardrails:
+    - "This scope does not introduce or modify backend HTTP request/response payload schemas"
+    - "Existing deck and flashcard contracts remain authoritative and unmodified"
+    - "Any future deck metadata field or delete-response shape change requires a separate ADR and dedicated contract update before implementation"
