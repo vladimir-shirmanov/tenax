@@ -37,6 +37,8 @@
   --border-subtle: #2f3c52;
   --danger: #ff5f94;
   --success: #42d897;
+  --accent-tertiary: #818fff;
+  --focus-ring: #818fff;
 
   color: var(--text-primary);
   background:
